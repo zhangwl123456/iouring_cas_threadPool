@@ -2,3 +2,8 @@
 
 - 2026-06-02：Completed。调整规则文件路径至 .github/copilot-instructions.md；初始化 docs/ 目录与基础文档骨架。下一步：根据需求补充 SPEC 并确认范围。
 - 2026-06-03：Completed。完成 SPEC 需求与技术规格编写（架构、API 契约、线程安全、TLS 边界、非功能指标与验收标准）。下一步：用户 Review 并确认后进入实现阶段。
+- 2026-06-04：Completed。根据用户确认将 SPEC 收敛为“仅线程池 + CAS 队列”，移除 io_uring/协议层/TLS，补齐资源所有权、超时语义、CAS 内存序与防饥饿策略，并新增可测验收标准。下一步：用户逐节评审后进入实现阶段。
+- 2026-06-04：Completed。根据用户纠偏恢复“网络接入层”为本阶段必做，确定 1A（固定长度前缀帧）与 2A（io_uring + epoll 双后端同等交付），并重构 SPEC 的架构、接口契约、背压策略与双后端验收标准。下一步：用户确认修订版 SPEC 后进入实现阶段。
+- 2026-06-04：Completed。将 Robotaxi 通信冻结草案写入 SPEC：确认车端 gRPC Streaming（HTTP/2）主链路、30 万在线容量、关键事件集合、至少一次投递 + 5 分钟幂等去重、60 秒补传策略与乘客端推送频率，并补充对应参数与验收指标。下一步：进入实现骨架与接口落地。
+- 2026-06-04：Completed。在 SPEC 新增“实现骨架清单（目录划分、头文件骨架、MVP 分阶段路径）与“测试分解清单”（单元/集成/性能/验收判定），形成编码阶段直接执行输入。下一步：按清单创建代码骨架并先完成 frame/queue/thread_pool 的最小实现。
+- 2026-06-04：Completed。完成 RingQueue::Enqueue 的工业级实现（无锁 MPMC 环形队列槽位序号法），补齐最小依赖代码骨架（status/types/ring_queue/CMake）与 GoogleTest 边界用例；本地构建通过且 5/5 单测通过。下一步：实现 Dequeue 深化用例并推进 thread_pool 最小实现。
