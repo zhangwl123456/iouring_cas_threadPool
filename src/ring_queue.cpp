@@ -7,6 +7,10 @@
 namespace robotaxi {
 namespace {
 
+// 入队超时路径中的自旋阈值。
+// 设计意图：
+// 1) 先用较短自旋覆盖“消费者马上释放槽位”的高概率场景；
+// 2) 超过阈值后逐步让出 CPU，避免高并发下生产者形成忙等风暴。
 constexpr std::uint32_t kSpinThreshold = 1024;
 
 }  // namespace
@@ -28,10 +32,15 @@ CasRingQueue::CasRingQueue(const std::uint32_t capacity_power_of_two)
       cas_retry_(0),
       backpressure_on_(0),
       backpressure_off_(0) {
+  // 约束原因：
+  // mask_ 使用位与完成取模，只有容量为 2 的幂时该优化成立。
+  // 容量至少为 2，避免队列无法区分有效推进与空转。
   if (!IsPowerOfTwo(capacity_power_of_two) || capacity_power_of_two < 2U) {
     throw std::invalid_argument("capacity must be power-of-two and >= 2");
   }
 
+  // 初始化槽位序号：第 i 个槽位初始可写条件为 seq == i。
+  // 这让首轮生产者可直接按 tail 命中对应槽位并完成占用。
   for (std::uint64_t i = 0; i < capacity_; ++i) {
     slots_[static_cast<std::size_t>(i)].sequence.store(i, std::memory_order_relaxed);
   }
@@ -75,6 +84,7 @@ bool CasRingQueue::TryEnqueueOnce(const Task& task) noexcept {
 }
 
 Status CasRingQueue::Enqueue(const Task& task, const std::uint32_t timeout_ms) {
+  // 执行入口为空会导致消费阶段无法调用业务逻辑，属于硬错误。
   if (task.executor == nullptr) {
     return {ErrorCode::kInvalidArgument, "task.executor is null"};
   }
@@ -120,6 +130,13 @@ bool CasRingQueue::TryDequeueOnce(Task* out_task) noexcept {
     const std::uint64_t seq = slot.sequence.load(std::memory_order_acquire);
     const std::uint64_t expected_ready = head + 1;
 
+    // 出队侧状态机（与入队侧 sequence 规则对偶）：
+    // seq == head + 1 : 槽位已有可读任务，可尝试 CAS 推进 head。
+    // seq <  head + 1 : 该槽位尚未被当前轮次生产者发布，视为队列空。
+    // seq >  head + 1 : 其他消费者已推进或观测跨轮次，刷新 head 重试。
+    //
+    // 简图（capacity = 8）：
+    //   [READY(seq=11)] --消费者占用--> [READ task] --发布 seq=18--> [FREE(next lap)]
     if (seq == expected_ready) {
       if (head_.compare_exchange_weak(
               head, head + 1, std::memory_order_acq_rel, std::memory_order_acquire)) {
@@ -143,6 +160,7 @@ bool CasRingQueue::TryDequeueOnce(Task* out_task) noexcept {
 }
 
 Status CasRingQueue::Dequeue(Task* out_task, const std::uint32_t timeout_ms) {
+  // 输出指针为空无法承载结果，直接拒绝。
   if (out_task == nullptr) {
     return {ErrorCode::kInvalidArgument, "out_task is null"};
   }
@@ -172,12 +190,16 @@ Status CasRingQueue::Dequeue(Task* out_task, const std::uint32_t timeout_ms) {
 std::uint32_t CasRingQueue::Capacity() const { return capacity_; }
 
 std::uint32_t CasRingQueue::Size() const {
+  // 并发语义说明：
+  // 这是瞬时近似值，不保证和任一时刻严格一致，但对监控和背压判定足够。
   const std::uint64_t tail = tail_.load(std::memory_order_acquire);
   const std::uint64_t head = head_.load(std::memory_order_acquire);
   return static_cast<std::uint32_t>(tail - head);
 }
 
 QueueMetrics CasRingQueue::Metrics() const {
+  // 快照读取采用 relaxed，目标是低开销观测；
+  // 指标用于趋势分析与告警，不承担强一致业务语义。
   return QueueMetrics{
       .capacity = capacity_,
       .size = Size(),

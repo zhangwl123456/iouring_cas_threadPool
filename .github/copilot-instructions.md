@@ -20,6 +20,11 @@ All project documentation must be maintained in specific directories to keep the
 • Style Guides:
   • All C++ code must strictly follow the Google C++ Style Guide (e.g., PascalCase for types, camelCase for variables, proper formatting, and explicit constructors).
   • All Python code must strictly follow the Google Python Style Guide and PEP 8 (with mandatory type hinting).
+• Mandatory Commenting (STRICT):
+  • Header files (.h/.hpp) MUST include detailed comments for all public-facing types, functions, and key fields, covering: purpose, parameter meaning, return semantics, ownership/lifetime constraints, thread-safety guarantees, and error behavior.
+  • Source files (.cpp/.cc) MUST include compact but technically deep comments on non-trivial control flow, lock-free/concurrency logic, memory-order assumptions, invariants, and algorithmic trade-offs.
+  • For complex algorithms or pointer-sensitive code, comments MUST include a small structural/state transition sketch (ASCII-style is acceptable) to support code review.
+  • Comments must explain both what and why; code without sufficient explanatory comments should be considered incomplete.
 • Architecture & Separation: Keep the codebase loosely coupled. Low-level core logic (e.g., hardware interfaces, OS-level memory/networking) must be strictly isolated from high-level orchestrators or UIs via clean abstract interfaces.
 • Contract-First for Interfaces: Before implementing cross-module or cross-language communications, define the data structures and API boundaries explicitly in docs/SPEC.md. Treat these interfaces as unbreakable contracts.
 • Defensive Programming: Write production-ready, safe code. Ensure proper memory management, robust thread safety, and explicit exception/error handling. Never leave // TODO or placeholder implementations.
