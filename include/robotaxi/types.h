@@ -52,6 +52,21 @@ struct QueueMetrics {
   std::uint64_t backpressure_off;
 };
 
+// 线程池运行指标快照。
+// 线程安全：字段由线程池内部原子变量聚合，适用于趋势观测与健康检查。
+struct ThreadPoolMetrics {
+  // 配置的工作线程数。
+  std::uint32_t configured_threads;
+  // 当前仍在循环中的工作线程数。
+  std::uint32_t active_threads;
+  // 成功执行的任务总数。
+  std::uint64_t executed_tasks;
+  // 工作线程空轮询次数（未取到任务）。
+  std::uint64_t worker_empty_poll;
+  // 工作线程阻塞等待次数（通过短超时出队实现）。
+  std::uint64_t worker_block_wait;
+};
+
 }  // namespace robotaxi
 
 #endif  // ROBOTAXI_TYPES_H_

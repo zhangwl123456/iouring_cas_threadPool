@@ -8,3 +8,4 @@
 - 2026-06-04：Completed。在 SPEC 新增“实现骨架清单（目录划分、头文件骨架、MVP 分阶段路径）与“测试分解清单”（单元/集成/性能/验收判定），形成编码阶段直接执行输入。下一步：按清单创建代码骨架并先完成 frame/queue/thread_pool 的最小实现。
 - 2026-06-04：Completed。完成 RingQueue::Enqueue 的工业级实现（无锁 MPMC 环形队列槽位序号法），补齐最小依赖代码骨架（status/types/ring_queue/CMake）与 GoogleTest 边界用例；本地构建通过且 5/5 单测通过。下一步：实现 Dequeue 深化用例并推进 thread_pool 最小实现。
 - 2026-06-08：Completed。按新注释规范对已开发模块执行“仅注释增强”：补齐头文件接口/字段注释（用途、参数语义、返回语义、生命周期、线程安全、错误语义），并强化 ring_queue.cpp 关键并发分支注释与状态流转示意；未改动任何行为逻辑，本地构建与测试 5/5 通过。下一步：继续按同等注释标准扩展后续模块实现。
+- 2026-06-10：Completed。完成 ThreadPool 最小实现与接线：新增 include/robotaxi/thread_pool.h、src/thread_pool.cpp、tests/thread_pool_test.cpp，扩展 types.h 的 ThreadPoolMetrics，并更新 CMake 将 thread_pool 编译进 robotaxi_core；本地构建通过，ctest 10/10 全通过（原 ring_queue 5 项 + 新 thread_pool 5 项）。下一步：实现固定长度前缀帧切分模块（Frame Decoder）及其单元测试，为后续 NetworkIngress（epoll/io_uring）接入提供稳定输入。
