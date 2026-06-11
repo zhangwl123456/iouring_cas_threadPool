@@ -4,10 +4,13 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
 
 ## 1. Repository Facts
 
-- The current core implementation is centered on the CAS ring queue:
-  - Header: include/robotaxi/ring_queue.h
-  - Implementation: src/ring_queue.cpp
-  - Test: tests/ring_queue_enqueue_test.cpp
+- The current core implementation is centered on the CAS ring queue and ThreadPool:
+  - CAS ring queue header: include/robotaxi/ring_queue.h
+  - CAS ring queue implementation: src/ring_queue.cpp
+  - CAS ring queue test: tests/ring_queue_enqueue_test.cpp
+  - ThreadPool header: include/robotaxi/thread_pool.h
+  - ThreadPool implementation: src/thread_pool.cpp
+  - ThreadPool test: tests/thread_pool_test.cpp
 - Project documentation lives in docs/:
   - Specification: docs/SPEC.md
   - Progress log: docs/PROGRESS_LOG.md
