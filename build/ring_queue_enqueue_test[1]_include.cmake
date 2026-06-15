@@ -1,0 +1,5 @@
+if(EXISTS "/workspaces/iouring_cas_threadPool/build/ring_queue_enqueue_test[1]_tests.cmake")
+  include("/workspaces/iouring_cas_threadPool/build/ring_queue_enqueue_test[1]_tests.cmake")
+else()
+  add_test(ring_queue_enqueue_test_NOT_BUILT ring_queue_enqueue_test_NOT_BUILT)
+endif()

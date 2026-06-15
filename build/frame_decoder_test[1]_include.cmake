@@ -1,0 +1,5 @@
+if(EXISTS "/workspaces/iouring_cas_threadPool/build/frame_decoder_test[1]_tests.cmake")
+  include("/workspaces/iouring_cas_threadPool/build/frame_decoder_test[1]_tests.cmake")
+else()
+  add_test(frame_decoder_test_NOT_BUILT frame_decoder_test_NOT_BUILT)
+endif()

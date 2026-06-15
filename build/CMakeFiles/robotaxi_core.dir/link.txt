@@ -1,0 +1,2 @@
+/usr/bin/ar qc librobotaxi_core.a CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o
+/usr/bin/ranlib librobotaxi_core.a

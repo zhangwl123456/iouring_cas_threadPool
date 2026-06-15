@@ -4,7 +4,10 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
 
 ## 1. Repository Facts
 
-- The current core implementation is centered on the CAS ring queue and ThreadPool:
+- The current core implementation is centered on the Frame Decoder, CAS ring queue, and ThreadPool:
+  - Frame Decoder header: include/robotaxi/frame_decoder.h
+  - Frame Decoder implementation: src/frame_decoder.cpp
+  - Frame Decoder test: tests/frame_decoder_test.cpp
   - CAS ring queue header: include/robotaxi/ring_queue.h
   - CAS ring queue implementation: src/ring_queue.cpp
   - CAS ring queue test: tests/ring_queue_enqueue_test.cpp
@@ -19,9 +22,13 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
 
 ### Current Scope Snapshot (Controlled Updates)
 
-- Keep this section aligned with the current implementation scope.
-- Update this section only when core module boundaries change (new core directories/files, renamed boundaries, or major ownership shifts).
-- Do not auto-rewrite this section on every task; update it in the same change where scope evolves.
+- Implemented core modules:
+  - Frame Decoder：固定长度前缀切分、半包/粘包处理、非法长度判定。
+  - CAS ring queue：MPMC 无锁入队/出队与基础指标。
+  - ThreadPool：任务提交、工作线程循环、停止流程与基础指标。
+- Pending core modules:
+  - NetworkIngress（epoll / io_uring）
+  - Observability / backpressure integration
 
 ## 2. Repository Rules
 

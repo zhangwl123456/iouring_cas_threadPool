@@ -123,6 +123,16 @@ struct FrameConfig {
   bool network_byte_order;       // 固定为 true（大端）
 };
 
+struct FrameView {
+  const uint8_t* payload;
+  uint32_t payload_size;
+};
+
+struct FrameDecodeResult {
+  size_t bytes_consumed;
+  std::vector<FrameView> completed_frames;
+};
+
 using TaskExecutor = void (*)(const struct Task& task);
 
 struct Task {
@@ -172,7 +182,26 @@ struct IngressMetrics {
 - executor 不得抛出未捕获异常；若抛出，线程池必须捕获并记录错误。
 - 网络层收包缓冲区与帧切分中间缓存由模块内部管理，不暴露跨层共享裸指针。
 
-### 4.4 网络接入接口
+### 4.4 帧切分接口
+
+```cpp
+class FrameDecoder {
+ public:
+  virtual ~FrameDecoder() = default;
+
+  virtual Status Decode(const uint8_t* buffer,
+                        size_t buffer_size,
+                        FrameDecodeResult* out_result) const = 0;
+  virtual FrameConfig Config() const = 0;
+};
+```
+
+- Decode: 仅负责按固定长度前缀协议切出完整 payload，不解析业务字段，不创建 Task。
+- 当 buffer 剩余字节不足以组成完整帧时，返回 Ok，且 out_result.bytes_consumed 仅覆盖已切出的完整帧。
+- 当长度字段为 0 或超过 max_frame_length 时，返回 FrameError，且不得消费当前错误帧。
+- out_result.completed_frames 中的 payload 为借用视图，仅在输入 buffer 保持有效期间可读。
+
+### 4.5 网络接入接口
 
 ```cpp
 class NetworkIngress {
@@ -192,7 +221,7 @@ class NetworkIngress {
 - PollOnce: 处理一次事件批次，包含连接处理、收包、帧切分和任务投递。
 - 当队列处于背压态时，PollOnce 可返回 Backpressure，并执行降速读或暂停读事件。
 
-### 4.5 队列接口
+### 4.6 队列接口
 
 ```cpp
 class RingQueue {
@@ -211,7 +240,7 @@ class RingQueue {
 - Dequeue: timeout_ms 内取到任务返回 Ok；超时返回 Timeout；即时模式下空队列返回 QueueEmpty。
 - timeout_ms 为 0 表示即时模式，不阻塞等待。
 
-### 4.6 线程池接口
+### 4.7 线程池接口
 
 ```cpp
 class ThreadPool {
@@ -230,7 +259,7 @@ class ThreadPool {
 - Stop: 在 wait_timeout_ms 内完成线程退出返回 Ok，否则返回 Timeout。
 - Submit: 线程池未启动返回 NotRunning；其余语义与队列 Enqueue 一致。
 
-### 4.7 固定长度前缀帧协议契约
+### 4.8 固定长度前缀帧协议契约
 
 - 长度字段固定 4 字节，采用网络字节序（大端）。
 - 长度字段表示 payload 字节长度，不包含长度字段自身。
@@ -238,7 +267,7 @@ class ThreadPool {
 - 长度字段为 0 或超过 max_frame_length 判定为 FrameError。
 - 发生 FrameError 时必须关闭对应连接，并递增 frame_decode_error 指标。
 
-### 4.8 Robotaxi 通信契约（冻结草案）
+### 4.9 Robotaxi 通信契约（冻结草案）
 
 - 车端通信：gRPC Streaming（HTTP/2）主链路；连接断开后必须自动重连。
 - 乘客端通信：HTTPS REST 为主，WebSocket 用于实时推送。
@@ -398,6 +427,7 @@ class ThreadPool {
 
 - include/robotaxi/status.h：ErrorCode、Status。
 - include/robotaxi/types.h：Task、配置结构体、指标结构体。
+- include/robotaxi/frame_decoder.h：FrameDecoder 接口。
 - include/robotaxi/network_ingress.h：NetworkIngress 接口。
 - include/robotaxi/ring_queue.h：RingQueue 接口。
 - include/robotaxi/thread_pool.h：ThreadPool 接口。

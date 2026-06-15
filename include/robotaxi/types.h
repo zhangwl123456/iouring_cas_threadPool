@@ -7,6 +7,17 @@ namespace robotaxi {
 
 struct Task;
 
+// 固定长度前缀帧切分配置。
+// 协议约束：
+// 1) length_field_bytes 固定为 4。
+// 2) max_frame_length 默认 1 MiB，且不得超过 16 MiB。
+// 3) network_byte_order 固定为 true，表示长度字段按大端解析。
+struct FrameConfig {
+  std::uint32_t length_field_bytes;
+  std::uint32_t max_frame_length;
+  bool network_byte_order;
+};
+
 // 任务执行器函数签名。
 // 调用语义：由线程池工作线程调用；函数内应保证异常自行处理，避免跨线程边界抛出未捕获异常。
 using TaskExecutor = void (*)(const Task& task);

@@ -1,0 +1,18 @@
+CasRingQueueEnqueueTest.EnqueueSucceedsWhenQueueHasSpace 2 0.00777911
+CasRingQueueEnqueueTest.EnqueueReturnsQueueFullWhenImmediateModeAndFull 2 0.00573408
+CasRingQueueEnqueueTest.EnqueueReturnsTimeoutWhenQueueRemainsFull 2 0.00743972
+CasRingQueueEnqueueTest.EnqueueEventuallySucceedsWithinTimeout 2 0.00815521
+CasRingQueueEnqueueTest.EnqueueIsSafeUnderConcurrentProducers 2 0.00788682
+ThreadPoolTest.StartRejectsZeroThreads 2 0.0122202
+ThreadPoolTest.SubmitFailsWhenNotRunning 2 0.013461
+ThreadPoolTest.StartTwiceReturnsAlreadyRunning 2 0.013042
+ThreadPoolTest.ExecutesSubmittedTasks 2 0.013587
+ThreadPoolTest.StopWhenNotRunningReturnsNotRunning 2 0.00521039
+FrameDecoderTest.DecodeReturnsCompleteFrame 5 0.00148822
+FrameDecoderTest.DecodeReturnsOkForPartialHeader 5 0.000825375
+FrameDecoderTest.DecodeReturnsOkForPartialPayload 5 0.00165843
+FrameDecoderTest.DecodeSplitsMultipleFramesAndLeavesTrailingPartialFrame 5 0.0008071
+FrameDecoderTest.DecodeReturnsFrameErrorForZeroLength 5 0.000899646
+FrameDecoderTest.DecodeReturnsFrameErrorForOversizedLength 3 0.0014629
+FrameDecoderTest.DecodeSupportsByteByByteAccumulationAtCallSite 5 0.00100711
+---
