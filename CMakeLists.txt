@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(robotaxi_core
   src/frame_decoder.cpp
+  src/network_ingress_epoll.cpp
   src/ring_queue.cpp
   src/thread_pool.cpp
 )
@@ -38,6 +39,10 @@ add_executable(frame_decoder_test
   tests/frame_decoder_test.cpp
 )
 
+add_executable(network_ingress_epoll_test
+  tests/network_ingress_epoll_test.cpp
+)
+
 add_executable(thread_pool_test
   tests/thread_pool_test.cpp
 )
@@ -54,6 +59,12 @@ target_link_libraries(frame_decoder_test
     GTest::gtest_main
 )
 
+target_link_libraries(network_ingress_epoll_test
+  PRIVATE
+    robotaxi_core
+    GTest::gtest_main
+)
+
 target_link_libraries(thread_pool_test
   PRIVATE
     robotaxi_core
@@ -63,4 +74,5 @@ target_link_libraries(thread_pool_test
 include(GoogleTest)
 gtest_discover_tests(ring_queue_enqueue_test)
 gtest_discover_tests(frame_decoder_test)
+gtest_discover_tests(network_ingress_epoll_test)
 gtest_discover_tests(thread_pool_test)

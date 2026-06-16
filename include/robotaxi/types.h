@@ -7,6 +7,24 @@ namespace robotaxi {
 
 struct Task;
 
+// 网络接入后端类型。
+enum class IngressBackendType {
+  kIoUring = 0,
+  kEpoll = 1,
+};
+
+// 网络接入运行时配置。
+struct IngressConfig {
+  IngressBackendType backend_type;
+  const char* bind_ip;
+  std::uint16_t bind_port;
+  std::uint32_t listen_backlog;
+  std::uint32_t recv_buffer_size;
+  std::uint32_t send_buffer_size;
+  std::uint32_t max_connections;
+  std::uint32_t max_events_per_poll;
+};
+
 // 固定长度前缀帧切分配置。
 // 协议约束：
 // 1) length_field_bytes 固定为 4。
@@ -76,6 +94,17 @@ struct ThreadPoolMetrics {
   std::uint64_t worker_empty_poll;
   // 工作线程阻塞等待次数（通过短超时出队实现）。
   std::uint64_t worker_block_wait;
+};
+
+// 网络接入层指标快照。
+struct IngressMetrics {
+  std::uint64_t accepted_connections;
+  std::uint64_t active_connections;
+  std::uint64_t recv_bytes;
+  std::uint64_t sent_bytes;
+  std::uint64_t completed_frames;
+  std::uint64_t frame_decode_error;
+  std::uint64_t dropped_on_backpressure;
 };
 
 }  // namespace robotaxi

@@ -4,10 +4,13 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
 
 ## 1. Repository Facts
 
-- The current core implementation is centered on the Frame Decoder, CAS ring queue, and ThreadPool:
+- The current core implementation is centered on the Frame Decoder, CAS ring queue, ThreadPool, and NetworkIngress (epoll MVP):
   - Frame Decoder header: include/robotaxi/frame_decoder.h
   - Frame Decoder implementation: src/frame_decoder.cpp
   - Frame Decoder test: tests/frame_decoder_test.cpp
+  - NetworkIngress header: include/robotaxi/network_ingress.h
+  - NetworkIngress implementation: src/network_ingress_epoll.cpp
+  - NetworkIngress test: tests/network_ingress_epoll_test.cpp
   - CAS ring queue header: include/robotaxi/ring_queue.h
   - CAS ring queue implementation: src/ring_queue.cpp
   - CAS ring queue test: tests/ring_queue_enqueue_test.cpp
@@ -24,10 +27,11 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
 
 - Implemented core modules:
   - Frame Decoder：固定长度前缀切分、半包/粘包处理、非法长度判定。
+  - NetworkIngress（epoll MVP）：连接接入、收包、切帧入队与背压读事件切换。
   - CAS ring queue：MPMC 无锁入队/出队与基础指标。
   - ThreadPool：任务提交、工作线程循环、停止流程与基础指标。
 - Pending core modules:
-  - NetworkIngress（epoll / io_uring）
+  - NetworkIngress（io_uring）
   - Observability / backpressure integration
 
 ## 2. Repository Rules
