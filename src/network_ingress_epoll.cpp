@@ -17,6 +17,8 @@
 #include <utility>
 #include <vector>
 
+#include "robotaxi/capacity_executor.h"
+
 namespace robotaxi {
 namespace {
 
@@ -31,8 +33,11 @@ void CloseFdIfValid(int* fd) {
   }
 }
 
-void NoopTaskExecutor(const Task&) {}
-
+// EpollNetworkIngress：epoll 后端的网络接入实现。
+// 关键职责：
+// 1) 管理监听与连接生命周期（accept/read/close）；
+// 2) 将字节流切分为帧并封装为 Task 入队；
+// 3) 通过高低水位背压控制读事件，避免队列被持续写满。
 class EpollNetworkIngress final : public NetworkIngress {
  public:
   EpollNetworkIngress(std::shared_ptr<RingQueue> queue, std::unique_ptr<FrameDecoder> decoder)
@@ -132,6 +137,9 @@ class EpollNetworkIngress final : public NetworkIngress {
     }
     conn_buffers_.clear();
     CleanupAllFds();
+
+    // 清理所有未被消费的帧缓冲。若线程池已完成执行，缓冲的管理责任回归 ingress 层。
+    payload_buffers_.clear();
 
     active_connections_.store(0, std::memory_order_relaxed);
     backpressure_active_.store(false, std::memory_order_release);
@@ -333,18 +341,30 @@ class EpollNetworkIngress final : public NetworkIngress {
 
   bool EnqueueFrames(const FrameDecodeResult& result) {
     for (const FrameView& frame : result.completed_frames) {
-      // 该最小链路阶段仅验证“收包-切帧-入队”路径，不在 ingress 层持有业务 payload。
-      // 业务 payload 的所有权与解析将在上层协议处理阶段补齐。
+      // 为每个帧分配持久缓冲，确保 payload 生命周期覆盖任务执行周期。
+      // 缓冲由 ingress 层管理；response_handle 存储缓冲指针便于查询与清理。
+      const std::uint64_t task_id = next_task_id_.fetch_add(1, std::memory_order_relaxed);
+      auto payload_buffer = std::make_unique<std::vector<std::uint8_t>>(
+          frame.payload, frame.payload + frame.payload_size);
+      
+      const void* payload_ptr = payload_buffer->data();
+      void* buffer_handle = payload_buffer.get();
+      
+      // 先入缓冲池，再入队列（确保缓冲有效）。
+      payload_buffers_[task_id] = std::move(payload_buffer);
+
       Task task{
-          .task_id = next_task_id_.fetch_add(1, std::memory_order_relaxed),
-        .payload = nullptr,
+          .task_id = task_id,
+          .payload = payload_ptr,
           .payload_size = frame.payload_size,
-          .response_handle = nullptr,
-          .executor = &NoopTaskExecutor,
+          .response_handle = buffer_handle,
+          .executor = &CapacityModeExecutor,
       };
 
       const Status s = queue_->Enqueue(task, 0);
       if (!s.Ok()) {
+        // 入队失败时，从缓冲池移除该任务的缓冲（自动析构）。
+        payload_buffers_.erase(task_id);
         return false;
       }
       completed_frames_.fetch_add(1, std::memory_order_relaxed);
@@ -374,6 +394,12 @@ class EpollNetworkIngress final : public NetworkIngress {
   int epoll_fd_;
   int listen_fd_;
   std::unordered_map<int, std::vector<std::uint8_t>> conn_buffers_;
+  
+  // 帧缓冲池：task_id -> payload 缓冲。
+  // 每个入队的 Task 都有对应的缓冲，确保 payload 指针有效期覆盖任务执行周期。
+  // 当线程池或上层应用处理完任务后，可通过 response_handle 查询并释放缓冲。
+  // 在 Stop() 时统一清理所有遗留缓冲。
+  std::unordered_map<std::uint64_t, std::unique_ptr<std::vector<std::uint8_t>>> payload_buffers_;
 
   std::atomic<std::uint64_t> accepted_connections_;
   std::atomic<std::uint64_t> active_connections_;

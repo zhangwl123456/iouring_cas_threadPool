@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(robotaxi_core
+  src/capacity_executor.cpp
   src/frame_decoder.cpp
   src/network_ingress_epoll.cpp
   src/ring_queue.cpp
@@ -43,6 +44,10 @@ add_executable(network_ingress_epoll_test
   tests/network_ingress_epoll_test.cpp
 )
 
+add_executable(capacity_executor_test
+  tests/capacity_executor_test.cpp
+)
+
 add_executable(thread_pool_test
   tests/thread_pool_test.cpp
 )
@@ -65,6 +70,12 @@ target_link_libraries(network_ingress_epoll_test
     GTest::gtest_main
 )
 
+target_link_libraries(capacity_executor_test
+  PRIVATE
+    robotaxi_core
+    GTest::gtest_main
+)
+
 target_link_libraries(thread_pool_test
   PRIVATE
     robotaxi_core
@@ -75,4 +86,5 @@ include(GoogleTest)
 gtest_discover_tests(ring_queue_enqueue_test)
 gtest_discover_tests(frame_decoder_test)
 gtest_discover_tests(network_ingress_epoll_test)
+gtest_discover_tests(capacity_executor_test)
 gtest_discover_tests(thread_pool_test)

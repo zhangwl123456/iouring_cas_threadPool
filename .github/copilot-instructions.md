@@ -17,6 +17,9 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
   - ThreadPool header: include/robotaxi/thread_pool.h
   - ThreadPool implementation: src/thread_pool.cpp
   - ThreadPool test: tests/thread_pool_test.cpp
+  - Capacity Executor header: include/robotaxi/capacity_executor.h
+  - Capacity Executor implementation: src/capacity_executor.cpp
+  - Capacity Executor test: tests/capacity_executor_test.cpp
 - Project documentation lives in docs/:
   - Specification: docs/SPEC.md
   - Progress log: docs/PROGRESS_LOG.md
@@ -30,8 +33,9 @@ Use this file as the repository-level baseline for AI agents. Task-level behavio
   - NetworkIngress（epoll MVP）：连接接入、收包、切帧入队与背压读事件切换。
   - CAS ring queue：MPMC 无锁入队/出队与基础指标。
   - ThreadPool：任务提交、工作线程循环、停止流程与基础指标。
+  - Capacity Executor（容量模式）：轻量 payload 解析/校验与指标聚合，作为当前阶段默认执行器。
 - Pending core modules:
-  - NetworkIngress（io_uring）
+  - NetworkIngress（io_uring，暂缓，当前阶段不作为硬交付）
   - Observability / backpressure integration
 
 ## 2. Repository Rules

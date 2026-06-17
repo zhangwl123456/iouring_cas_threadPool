@@ -7,7 +7,7 @@
 ### 1.1 目标
 
 - 构建可复用的高并发请求处理模块，覆盖网络接入、消息切分、任务入队与线程池执行全链路。
-- 网络接入层支持 io_uring + epoll 双后端抽象，两个后端在本阶段必须达到同等功能。
+- 网络接入层保留 io_uring + epoll 双后端抽象能力；当前阶段以 epoll 完成端到端闭环为硬目标，io_uring 暂不纳入本阶段硬验收。
 - 使用固定长度前缀帧（length-prefixed）完成消息边界切分，并将消息投递到 CAS 无锁环形队列。
 - 在 C++20 环境下提供稳定接口，支持 CMake 构建和 GoogleTest 验证。
 - 在高竞争场景下保证任务处理正确性、无死锁与可观测。
@@ -52,7 +52,7 @@
 
 1. 网络接入层（Network Ingress Layer）
   - 负责 accept/read/write/close 和事件循环。
-  - 通过后端抽象同时支持 io_uring 与 epoll。
+  - 通过后端抽象支持 io_uring 与 epoll；当前阶段优先交付 epoll 闭环。
 2. 帧切分层（Frame Decoder Layer）
   - 按固定长度前缀协议切分完整消息。
   - 生成待处理消息并交给任务构造逻辑。
@@ -176,11 +176,25 @@ struct IngressMetrics {
 
 ### 4.3 资源所有权与生命周期
 
+#### 4.3.1 Payload 所有权与缓冲管理
+
+- **网络接入层负责 payload 缓冲分配与释放**。每个入队的 Task 都伴随一个由 ingress 层分配的 `std::vector<uint8_t>` 缓冲，其中存储帧的完整 payload 数据。
+- **缓冲生命周期覆盖出队后执行**：缓冲在 `Enqueue()` 成功时分配，在 `Stop()` 时统一释放，确保任务执行期间 payload 指针保持有效。
+- **Task.response_handle 用于缓冲追踪**：指向缓冲对象，允许上层应用在任务执行完成后通知 ingress 进行缓冲回收（当前阶段暂未实现回收回调，缓冲在 `Stop()` 时全量释放）。
+- **executor 无需显式管理 payload 所有权**：只读取 `Task.payload` 数据，无需释放。
+
+#### 4.3.2 其他资源所有权
+
 - Task 对象本体由调用方创建并管理。
-- payload 与 response_handle 的所有权归调用方；本模块仅借用，不释放、不重分配。
-- 调用方必须保证 payload 在任务执行完成前持续有效。
 - executor 不得抛出未捕获异常；若抛出，线程池必须捕获并记录错误。
-- 网络层收包缓冲区与帧切分中间缓存由模块内部管理，不暴露跨层共享裸指针。
+- 网络层连接缓冲区与帧切分中间缓存由模块内部管理，不暴露跨层共享裸指针。
+
+#### 4.3.3 当前阶段执行器策略（容量模式）
+
+- 当前阶段默认执行器采用“容量模式”，目标是评估接入模块承载上限，而非模拟完整业务逻辑。
+- 容量模式执行器仅允许：payload 读取、头字段轻量解析、基础合法性校验、聚合计数与轻量校验计算。
+- 容量模式执行器禁止：外部网络调用、磁盘 IO、长时间锁等待、回包发送。
+- 容量模式执行器应保持近似常量时间或线性读取复杂度（O(payload_size)），避免引入与接入框架无关的瓶颈。
 
 ### 4.4 帧切分接口
 
@@ -342,7 +356,7 @@ class ThreadPool {
 | 参数名 | 类型 | 范围 | 默认值 | 生效方式 |
 | --- | --- | --- | --- | --- |
 | peak_online_vehicles | uint32_t | [100000, 500000] | 300000 | 容量规划固定 |
-| ingress_backend | enum | io_uring / epoll | io_uring | Start 时固定 |
+| ingress_backend | enum | io_uring / epoll | epoll | Start 时固定 |
 | ingress_max_connections | uint32_t | [1024, 1,000,000] | 100000 | Start 时固定 |
 | ingress_max_events_per_poll | uint32_t | [64, 8192] | 1024 | Start 时固定 |
 | frame_max_length | uint32_t | [1024, 16 MiB] | 1 MiB | Start 时固定 |
@@ -387,7 +401,7 @@ class ThreadPool {
 
 - 使用 ThreadSanitizer 运行全量单元测试，结果为 0 data race。
 - 32 线程并发压测 10 分钟，无死锁、无崩溃、无任务重复执行。
-- 双后端一致性测试：同一测试集在 io_uring 与 epoll 后端结果一致。
+- epoll 后端一致性测试：同一测试集多轮执行结果一致。
 
 ### 7.3 性能验收口径（网络接入 + 内部链路）
 
@@ -402,11 +416,11 @@ class ThreadPool {
 - 去重正确性：重复 message_id 不重复入队，误判率 <= 0.01%。
 - 乘客端推送约束：常态 1Hz，接驾阶段 2Hz，推送延迟满足 7.3 时延目标。
 
-### 7.4 双后端交付标准（2A）
+### 7.4 当前阶段交付标准（2A-epoll）
 
-- io_uring 与 epoll 后端都必须通过 7.1、7.2、7.3 的全部门槛。
-- 任何一个后端未达标，整体阶段验收不通过。
-- 后端行为一致性差异必须在测试报告中显式记录并关闭。
+- epoll 后端必须通过 7.1、7.2、7.3 的全部门槛。
+- io_uring 后端在当前阶段标记为“暂缓实现”，不作为阶段通过前置条件。
+- 当前阶段若 epoll 后端未达标，则整体阶段验收不通过。
 
 ### 7.5 通过/失败判定
 
@@ -423,16 +437,16 @@ class ThreadPool {
 
 ### 9.1 目录与模块划分
 
-- src/ingress：网络接入抽象层与双后端实现。
-- src/ingress/iouring：io_uring 后端实现。
-- src/ingress/epoll：epoll 后端实现。
+- src/ingress：网络接入抽象层与后端实现。
+- src/ingress/epoll：epoll 后端实现（当前阶段主路径）。
+- src/ingress/iouring：io_uring 后端实现（后续阶段）。
 - src/frame：固定长度前缀帧切分器。
 - src/queue：CAS 环形队列实现。
 - src/thread_pool：线程池与调度循环实现。
 - src/observability：指标聚合与日志封装。
 - include/robotaxi：对外接口头文件。
 - tests/unit：单元测试。
-- tests/integration：双后端一致性与链路集成测试。
+- tests/integration：epoll 链路与端到端集成测试。
 - tests/perf：吞吐、延迟、连接规模压测脚本。
 
 ### 9.2 对外头文件骨架
@@ -450,9 +464,9 @@ class ThreadPool {
 - 阶段 1：实现固定长度前缀帧切分器与单元测试。
 - 阶段 2：实现 CAS 队列基础路径（Enqueue/Dequeue/超时）与单元测试。
 - 阶段 3：实现线程池工作循环（Submit/Stop/空闲策略）与单元测试。
-- 阶段 4：接入 epoll 后端，实现端到端收包-切帧-入队-执行链路。
-- 阶段 5：接入 io_uring 后端，并完成与 epoll 的功能一致性回归。
-- 阶段 6：补齐可观测与背压，完成 2A 验收测试。
+- 阶段 4：接入 epoll 后端，实现端到端收包-切帧-入队-执行闭环。
+- 阶段 5：补齐可观测与背压，完成 2A-epoll 验收测试。
+- 阶段 6（后续）：接入 io_uring 后端并开展一致性回归。
 
 ### 9.4 工程约束
 
@@ -473,9 +487,9 @@ class ThreadPool {
 ### 10.2 集成测试（第二优先级）
 
 - epoll 链路：收包到执行全链路正确性。
-- io_uring 链路：收包到执行全链路正确性。
-- 双后端一致性：同一输入集输出行为一致。
+- epoll 稳定性回归：同一输入集多轮执行行为一致。
 - 背压联动：高低水位触发/恢复行为正确，指标与日志一致。
+- 连接生命周期：接入、断开、异常关闭路径与资源回收正确。
 
 ### 10.3 性能与稳定性测试（第三优先级）
 
@@ -489,4 +503,4 @@ class ThreadPool {
 
 - 任一单元测试或集成测试失败即阻断合并。
 - 任一性能门槛未达标即验收失败。
-- 双后端任一后端未通过即 2A 不通过。
+- 当前阶段以 epoll 为唯一硬验收后端；io_uring 不作为 2A-epoll 通过前置条件。

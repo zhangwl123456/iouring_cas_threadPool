@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include "robotaxi/capacity_executor.h"
 #include "robotaxi/frame_decoder.h"
 #include "robotaxi/ring_queue.h"
 
@@ -135,7 +136,7 @@ TEST(NetworkIngressEpollTest, PollOnceAcceptsAndEnqueuesFrame) {
   const Status dq = queue->Dequeue(&out, 10);
   ASSERT_TRUE(dq.Ok());
   EXPECT_EQ(out.payload_size, payload.size());
-  EXPECT_NE(out.executor, nullptr);
+  EXPECT_EQ(out.executor, &CapacityModeExecutor);
   out.executor(out);
 
   const IngressMetrics metrics = ingress->Metrics();
@@ -172,6 +173,99 @@ TEST(NetworkIngressEpollTest, PollOnceReturnsBackpressureWhenQueueIsFull) {
   const Status s = ingress->PollOnce(0);
   EXPECT_EQ(s.code, ErrorCode::kBackpressure);
 
+  EXPECT_TRUE(ingress->Stop(0).Ok());
+}
+
+TEST(NetworkIngressEpollTest, EndToEndPayloadPassingFromIngressToThreadPool) {
+  // 测试完整链路：ingress 接收 → 切帧 → 入队 → payload 验证。
+  // 验证：payload 缓冲有效，Task 中的指针指向有效数据，生命周期覆盖出队后使用。
+  auto queue = std::make_shared<CasRingQueue>(256);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  const std::uint16_t port = FindFreePort();
+  ASSERT_TRUE(ingress->Start(MakeIngressConfig(port), DefaultFrameConfig()).Ok());
+
+  // 创建客户端连接并发送多个帧。
+  const int client_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+  ASSERT_GE(client_fd, 0);
+
+  sockaddr_in srv{};
+  srv.sin_family = AF_INET;
+  srv.sin_port = htons(port);
+  ASSERT_EQ(::inet_pton(AF_INET, "127.0.0.1", &srv.sin_addr), 1);
+  ASSERT_EQ(::connect(client_fd, reinterpret_cast<sockaddr*>(&srv), sizeof(srv)), 0);
+
+  // 发送 3 个帧，payload 分别为不同的内容。
+  const std::vector<std::uint8_t> payload_1{0x11, 0x22, 0x33, 0x44};
+  const std::vector<std::uint8_t> payload_2{0xAA, 0xBB, 0xCC};
+  const std::vector<std::uint8_t> payload_3{0xFF, 0xEE};
+
+  const std::vector<std::uint8_t> frame_1 = BuildFrame(payload_1);
+  const std::vector<std::uint8_t> frame_2 = BuildFrame(payload_2);
+  const std::vector<std::uint8_t> frame_3 = BuildFrame(payload_3);
+
+  // 一次性发送所有帧数据。
+  std::vector<std::uint8_t> all_frames;
+  all_frames.insert(all_frames.end(), frame_1.begin(), frame_1.end());
+  all_frames.insert(all_frames.end(), frame_2.begin(), frame_2.end());
+  all_frames.insert(all_frames.end(), frame_3.begin(), frame_3.end());
+
+  ASSERT_EQ(::send(client_fd, all_frames.data(), all_frames.size(), 0),
+            static_cast<ssize_t>(all_frames.size()));
+
+  // 轮询 ingress，处理接收、切帧、入队。
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (queue->Size() < 3U) {
+    const Status poll_s = ingress->PollOnce(5);
+    ASSERT_TRUE(poll_s.Ok() || poll_s.code == ErrorCode::kBackpressure);
+
+    if (queue->Size() >= 3U) {
+      break;  // 3 个帧已入队。
+    }
+    if (std::chrono::steady_clock::now() > deadline) {
+      FAIL() << "Timeout waiting for frames to be enqueued";
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  // 从队列出队并验证 payload 有效性。
+  Task task_1{};
+  const Status dq_1 = queue->Dequeue(&task_1, 100);
+  ASSERT_TRUE(dq_1.Ok());
+  EXPECT_NE(task_1.payload, nullptr);
+  EXPECT_EQ(task_1.payload_size, payload_1.size());
+  EXPECT_EQ(std::vector<std::uint8_t>(
+                static_cast<const std::uint8_t*>(task_1.payload),
+                static_cast<const std::uint8_t*>(task_1.payload) + task_1.payload_size),
+            payload_1);
+
+  Task task_2{};
+  const Status dq_2 = queue->Dequeue(&task_2, 100);
+  ASSERT_TRUE(dq_2.Ok());
+  EXPECT_NE(task_2.payload, nullptr);
+  EXPECT_EQ(task_2.payload_size, payload_2.size());
+  EXPECT_EQ(std::vector<std::uint8_t>(
+                static_cast<const std::uint8_t*>(task_2.payload),
+                static_cast<const std::uint8_t*>(task_2.payload) + task_2.payload_size),
+            payload_2);
+
+  Task task_3{};
+  const Status dq_3 = queue->Dequeue(&task_3, 100);
+  ASSERT_TRUE(dq_3.Ok());
+  EXPECT_NE(task_3.payload, nullptr);
+  EXPECT_EQ(task_3.payload_size, payload_3.size());
+  EXPECT_EQ(std::vector<std::uint8_t>(
+                static_cast<const std::uint8_t*>(task_3.payload),
+                static_cast<const std::uint8_t*>(task_3.payload) + task_3.payload_size),
+            payload_3);
+
+  // 验证 ingress 指标。
+  const IngressMetrics ingress_metrics = ingress->Metrics();
+  EXPECT_GE(ingress_metrics.completed_frames, 3U);
+  EXPECT_EQ(ingress_metrics.frame_decode_error, 0U);
+
+  ASSERT_EQ(::close(client_fd), 0);
   EXPECT_TRUE(ingress->Stop(0).Ok());
 }
 
