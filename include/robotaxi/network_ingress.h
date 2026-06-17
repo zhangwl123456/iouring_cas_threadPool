@@ -54,6 +54,11 @@ class NetworkIngress {
 std::unique_ptr<NetworkIngress> MakeEpollNetworkIngress(std::shared_ptr<RingQueue> queue,
                                                         std::unique_ptr<FrameDecoder> decoder);
 
+// 工厂函数：创建 epoll 后端 NetworkIngress，支持自定义 executor。
+std::unique_ptr<NetworkIngress> MakeEpollNetworkIngressWithExecutor(std::shared_ptr<RingQueue> queue,
+                                                                     std::unique_ptr<FrameDecoder> decoder,
+                                                                     TaskExecutor executor);
+
 }  // namespace robotaxi
 
 #endif  // ROBOTAXI_NETWORK_INGRESS_H_

@@ -179,8 +179,8 @@ struct IngressMetrics {
 #### 4.3.1 Payload 所有权与缓冲管理
 
 - **网络接入层负责 payload 缓冲分配与释放**。每个入队的 Task 都伴随一个由 ingress 层分配的 `std::vector<uint8_t>` 缓冲，其中存储帧的完整 payload 数据。
-- **缓冲生命周期覆盖出队后执行**：缓冲在 `Enqueue()` 成功时分配，在 `Stop()` 时统一释放，确保任务执行期间 payload 指针保持有效。
-- **Task.response_handle 用于缓冲追踪**：指向缓冲对象，允许上层应用在任务执行完成后通知 ingress 进行缓冲回收（当前阶段暂未实现回收回调，缓冲在 `Stop()` 时全量释放）。
+- **缓冲生命周期覆盖出队后执行**：缓冲在 `Enqueue()` 成功时分配，在任务 executor 返回后立即回收；`Stop()` 仅负责兜底清理未执行任务残留缓冲。
+- **Task.response_handle 用于缓冲追踪**：指向 ingress 内部缓冲句柄；执行器包装器在任务执行完成后回调 ingress 完成缓冲回收。
 - **executor 无需显式管理 payload 所有权**：只读取 `Task.payload` 数据，无需释放。
 
 #### 4.3.2 其他资源所有权
@@ -238,10 +238,19 @@ class NetworkIngress {
 ### 4.5.1 NetworkIngress 实现基线决策（2026-06-16 冻结）
 
 - 接收缓冲策略：采用“每连接独立接收缓冲区”。每个连接维护独立字节缓存，用于处理半包拼接与粘包拆分；不使用跨连接共享缓冲。
+- 接收缓冲压缩策略：采用“消费偏移 + 按阈值压缩”。
+  - `Decode()` 基于连接缓冲的未消费区间执行，不对每次消费执行线性 `erase(begin, begin + consumed)`。
+  - 当已消费偏移达到压缩阈值且剩余数据占比低于阈值时，执行一次内存压缩；缓冲完全消费时直接 `clear + offset reset`。
 - PollOnce 语义：采用工业常见的“阻塞式轮询 + 超时参数”模型。
   - timeout_ms == 0：非阻塞探测一次。
   - timeout_ms > 0：最多阻塞 timeout_ms 等待事件。
   - 超时无事件返回 Ok（非错误）。
+- epoll 触发模式（第 2 步单变量实验）：
+  - `listen_fd` 保持 LT（默认 `EPOLLIN`），优先保证 accept 行为可观测与稳定性。
+  - `conn_fd` 采用 ET（`EPOLLIN | EPOLLET`），并保持“读到 `EAGAIN` 为止”的 drain 语义。
+- 监听 socket 复用策略（第 2 步单变量实验）：
+  - `listen_fd` 同时启用 `SO_REUSEADDR` 与 `SO_REUSEPORT`。
+  - 当前阶段采用“单 ingress 实例 + 多监听 socket”的最小多 acceptor 实现：固定创建 2 个 listen socket 并共同注册到同一 epoll 实例。
 - 背压策略：采用“高低水位迟滞 + 暂停读事件”。
   - 队列占用达到 HIGH_WATERMARK（85%）时，暂停连接读事件（必要时含监听 fd 读事件）。
   - 占用回落到 LOW_WATERMARK（60%）时恢复读事件。
@@ -416,6 +425,45 @@ class ThreadPool {
 - 去重正确性：重复 message_id 不重复入队，误判率 <= 0.01%。
 - 乘客端推送约束：常态 1Hz，接驾阶段 2Hz，推送延迟满足 7.3 时延目标。
 
+### 7.3.1 端到端压测程序与输出契约（强制）
+
+- 当前仓库的基线压测必须覆盖完整端到端链路：客户端 TCP 发包 -> NetworkIngress(epoll) 收包 -> FrameDecoder 切帧 -> RingQueue 入队/出队 -> ThreadPool 调度 -> CapacityModeExecutor 执行完成。
+- 端到端压测结论在任何运行环境都必须可获得，包括本地 Linux、CI、Codespace；禁止仅以内部链路基准替代端到端结论。
+- 基线压测程序应包含 server 与 client 两侧：
+  - server 侧负责启动 ingress 与事件循环，并将帧投递到执行层。
+  - client 侧负责并发建连、发送长度前缀帧、控制发送速率与总请求量。
+- 若保留内部链路微基准，仅允许作为诊断辅助，不得作为 7.3 验收主结论来源。
+- 命令示例应使用端到端程序入口（包含 server/client 参数），并输出统一指标。
+
+输出指标字段（统一口径）：
+
+- e2e 吞吐：throughput_fps（frames/s）与 throughput_tps（tasks/s）。
+- e2e 延迟：latency_us.p50、latency_us.p99、latency_us.p999。
+- 口径定义：默认延迟口径为“客户端发送时刻 -> executor 执行完成时刻”；若采用其他口径，必须在结果中显式标注且不可混用。
+- 稳定性指标：连接成功率、发送失败率、frame_decode_error、dropped_on_backpressure。
+- 内部快照：queue_metrics、thread_pool_metrics、capacity_executor_metrics、ingress_metrics。
+
+结果解释规则：
+
+- 端到端吞吐与端到端尾延迟是主判据。
+- 内部指标仅用于定位瓶颈来源，不可替代端到端主判据。
+- 任何结论必须附带完整参数、环境信息与原始采样文件。
+
+### 7.3.2 基线采样流程契约（用于调优对比）
+
+- 采样流程固定为：`预热 1 轮（不计入统计） + 正式采样 N 轮（默认 N=5）`。
+- 正式采样各轮必须使用相同参数，且在同一运行环境内完成（同一容器、同一 CPU 配额、同一构建产物）。
+- 每轮输出必须保留原始记录，至少包含：`throughput_tps`、`p99_latency_us`、`p999_latency_us`、`cas_retry_rate`、`worker_empty_poll_ratio`。
+- 汇总必须同时给出均值、标准差、最小值、最大值，避免仅报告单次最优值。
+- 单变量调优规则：每次仅改变 1 个变量（线程数/队列容量/payload 大小/网络参数之一），其余参数保持不变。
+- 推荐执行入口：`benchmarks/run_capacity_sampling.sh`，脚本负责预热、重复执行、生成逐轮明细与汇总文件。
+
+结果判读补充规则：
+
+- 若吞吐提升但 `p999_latency_us` 明显恶化（建议阈值 20%），判定为不可接受优化。
+- 若 `cas_retry_rate` 与 `worker_empty_poll_ratio` 同时上升，优先排查线程数与队列容量匹配关系，而非立即替换底层算法。
+- 任何参数组合的结论至少基于 5 轮样本，不得用单轮结果直接下优化结论。
+
 ### 7.4 当前阶段交付标准（2A-epoll）
 
 - epoll 后端必须通过 7.1、7.2、7.3 的全部门槛。
@@ -504,3 +552,7 @@ class ThreadPool {
 - 任一单元测试或集成测试失败即阻断合并。
 - 任一性能门槛未达标即验收失败。
 - 当前阶段以 epoll 为唯一硬验收后端；io_uring 不作为 2A-epoll 通过前置条件。
+
+- 每轮采样前必须完成 server 就绪检查与 client 连通性检查；任一失败则该轮判定无效并重试。
+- 采样结果必须同时保留端到端指标与 ingress/queue/thread_pool 内部快照，确保可做瓶颈归因。
+- 若未提供端到端链路结果，仅提供内部链路结果，则验收判定为失败。

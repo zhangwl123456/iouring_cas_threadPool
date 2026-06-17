@@ -9,11 +9,14 @@
 
 #include <atomic>
 #include <cerrno>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -25,6 +28,19 @@ namespace {
 constexpr std::uint32_t kReadChunkSize = 4096;
 constexpr std::uint32_t kQueueHighWatermarkPercent = 85;
 constexpr std::uint32_t kQueueLowWatermarkPercent = 60;
+constexpr std::size_t kReadCompactThresholdBytes = 16U * 1024U;
+constexpr std::uint32_t kReusePortListenerCount = 2;
+
+std::uint32_t MakeConnEvents(const bool enable_read) {
+  return EPOLLRDHUP | EPOLLET | (enable_read ? EPOLLIN : 0U);
+}
+
+class EpollNetworkIngress;
+
+struct PayloadHandle {
+  EpollNetworkIngress* owner = nullptr;
+  std::uint64_t task_id = 0;
+};
 
 void CloseFdIfValid(int* fd) {
   if (fd != nullptr && *fd >= 0) {
@@ -40,13 +56,14 @@ void CloseFdIfValid(int* fd) {
 // 3) 通过高低水位背压控制读事件，避免队列被持续写满。
 class EpollNetworkIngress final : public NetworkIngress {
  public:
-  EpollNetworkIngress(std::shared_ptr<RingQueue> queue, std::unique_ptr<FrameDecoder> decoder)
+  EpollNetworkIngress(std::shared_ptr<RingQueue> queue, std::unique_ptr<FrameDecoder> decoder,
+                      TaskExecutor custom_executor = nullptr)
       : queue_(std::move(queue)),
         decoder_(std::move(decoder)),
+        custom_executor_(custom_executor),
         running_(false),
         backpressure_active_(false),
         epoll_fd_(-1),
-        listen_fd_(-1),
         accepted_connections_(0),
         active_connections_(0),
         recv_bytes_(0),
@@ -58,6 +75,15 @@ class EpollNetworkIngress final : public NetworkIngress {
 
   ~EpollNetworkIngress() override {
     (void)Stop(0);
+  }
+
+  static void IngressCapacityExecutor(const Task& task) {
+    CapacityModeExecutor(task);
+
+    auto* handle = static_cast<PayloadHandle*>(task.response_handle);
+    if (handle != nullptr && handle->owner != nullptr) {
+      handle->owner->ReleasePayload(handle->task_id);
+    }
   }
 
   Status Start(const IngressConfig& ingress_config, const FrameConfig&) override {
@@ -83,42 +109,57 @@ class EpollNetworkIngress final : public NetworkIngress {
       return {ErrorCode::kIoError, "epoll_create1 failed"};
     }
 
-    listen_fd_ = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-    if (listen_fd_ < 0) {
-      CloseFdIfValid(&epoll_fd_);
-      return {ErrorCode::kIoError, "socket failed"};
-    }
+    for (std::uint32_t i = 0; i < kReusePortListenerCount; ++i) {
+      const int listen_fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+      if (listen_fd < 0) {
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "socket failed"};
+      }
 
-    int reuse = 1;
-    if (::setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-      CleanupAllFds();
-      return {ErrorCode::kIoError, "setsockopt(SO_REUSEADDR) failed"};
-    }
+      int reuse = 1;
+      if (::setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "setsockopt(SO_REUSEADDR) failed"};
+      }
+      if (::setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "setsockopt(SO_REUSEPORT) failed"};
+      }
 
-    sockaddr_in addr{};
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(ingress_config.bind_port);
-    if (::inet_pton(AF_INET, ingress_config.bind_ip, &addr.sin_addr) != 1) {
-      CleanupAllFds();
-      return {ErrorCode::kInvalidArgument, "bind_ip is not valid ipv4"};
-    }
+      sockaddr_in addr{};
+      addr.sin_family = AF_INET;
+      addr.sin_port = htons(ingress_config.bind_port);
+      if (::inet_pton(AF_INET, ingress_config.bind_ip, &addr.sin_addr) != 1) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kInvalidArgument, "bind_ip is not valid ipv4"};
+      }
 
-    if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-      CleanupAllFds();
-      return {ErrorCode::kIoError, "bind failed"};
-    }
+      if (::bind(listen_fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "bind failed"};
+      }
 
-    if (::listen(listen_fd_, static_cast<int>(ingress_config.listen_backlog)) < 0) {
-      CleanupAllFds();
-      return {ErrorCode::kIoError, "listen failed"};
-    }
+      if (::listen(listen_fd, static_cast<int>(ingress_config.listen_backlog)) < 0) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "listen failed"};
+      }
 
-    epoll_event ev{};
-    ev.events = EPOLLIN | EPOLLRDHUP;
-    ev.data.fd = listen_fd_;
-    if (::epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd_, &ev) < 0) {
-      CleanupAllFds();
-      return {ErrorCode::kIoError, "epoll_ctl add listen fd failed"};
+      epoll_event ev{};
+      ev.events = EPOLLIN | EPOLLRDHUP;
+      ev.data.fd = listen_fd;
+      if (::epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, listen_fd, &ev) < 0) {
+        (void)::close(listen_fd);
+        CleanupAllFds();
+        return {ErrorCode::kIoError, "epoll_ctl add listen fd failed"};
+      }
+
+      listen_fds_.push_back(listen_fd);
+      listen_fds_set_.insert(listen_fd);
     }
 
     ingress_config_ = ingress_config;
@@ -139,7 +180,11 @@ class EpollNetworkIngress final : public NetworkIngress {
     CleanupAllFds();
 
     // 清理所有未被消费的帧缓冲。若线程池已完成执行，缓冲的管理责任回归 ingress 层。
-    payload_buffers_.clear();
+    {
+      std::lock_guard<std::mutex> lock(payload_mu_);
+      payload_buffers_.clear();
+      payload_handles_.clear();
+    }
 
     active_connections_.store(0, std::memory_order_relaxed);
     backpressure_active_.store(false, std::memory_order_release);
@@ -167,8 +212,8 @@ class EpollNetworkIngress final : public NetworkIngress {
       const int fd = events[static_cast<std::size_t>(i)].data.fd;
       const std::uint32_t ev = events[static_cast<std::size_t>(i)].events;
 
-      if (fd == listen_fd_) {
-        HandleAccept();
+      if (listen_fds_set_.find(fd) != listen_fds_set_.end()) {
+        HandleAccept(fd);
         continue;
       }
 
@@ -237,25 +282,25 @@ class EpollNetworkIngress final : public NetworkIngress {
 
     epoll_event listen_ev{};
     listen_ev.events = EPOLLRDHUP | (enable_read ? EPOLLIN : 0U);
-    listen_ev.data.fd = listen_fd_;
-    if (listen_fd_ >= 0) {
-      (void)::epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, listen_fd_, &listen_ev);
+    for (const int listen_fd : listen_fds_) {
+      listen_ev.data.fd = listen_fd;
+      (void)::epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, listen_fd, &listen_ev);
     }
 
     for (const auto& [fd, _] : conn_buffers_) {
       epoll_event conn_ev{};
-      conn_ev.events = EPOLLRDHUP | (enable_read ? EPOLLIN : 0U);
+      conn_ev.events = MakeConnEvents(enable_read);
       conn_ev.data.fd = fd;
       (void)::epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, fd, &conn_ev);
     }
   }
 
-  void HandleAccept() {
+  void HandleAccept(const int listen_fd) {
     for (;;) {
       sockaddr_in peer{};
       socklen_t peer_len = sizeof(peer);
-      const int conn_fd =
-          ::accept4(listen_fd_, reinterpret_cast<sockaddr*>(&peer), &peer_len,
+        const int conn_fd =
+          ::accept4(listen_fd, reinterpret_cast<sockaddr*>(&peer), &peer_len,
                     SOCK_NONBLOCK | SOCK_CLOEXEC);
       if (conn_fd < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -270,18 +315,23 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       epoll_event ev{};
-      ev.events = EPOLLIN | EPOLLRDHUP;
+      ev.events = MakeConnEvents(true);
       ev.data.fd = conn_fd;
       if (::epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, conn_fd, &ev) < 0) {
         (void)::close(conn_fd);
         continue;
       }
 
-      conn_buffers_.emplace(conn_fd, std::vector<std::uint8_t>{});
+      conn_buffers_.emplace(conn_fd, ConnBuffer{});
       accepted_connections_.fetch_add(1, std::memory_order_relaxed);
       active_connections_.fetch_add(1, std::memory_order_relaxed);
     }
   }
+
+  struct ConnBuffer {
+    std::vector<std::uint8_t> bytes;
+    std::size_t consumed = 0;
+  };
 
   Status HandleRead(const int conn_fd) {
     auto it = conn_buffers_.find(conn_fd);
@@ -289,7 +339,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       return {ErrorCode::kIoError, "connection state missing"};
     }
 
-    std::vector<std::uint8_t>& buf = it->second;
+    ConnBuffer& conn_buf = it->second;
     std::uint8_t tmp[kReadChunkSize];
 
     for (;;) {
@@ -306,12 +356,19 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       recv_bytes_.fetch_add(static_cast<std::uint64_t>(n), std::memory_order_relaxed);
-      buf.insert(buf.end(), tmp, tmp + n);
+      conn_buf.bytes.insert(conn_buf.bytes.end(), tmp, tmp + n);
     }
 
     for (;;) {
       FrameDecodeResult result{};
-      const Status decode_status = decoder_->Decode(buf.data(), buf.size(), &result);
+      if (conn_buf.consumed > conn_buf.bytes.size()) {
+        return {ErrorCode::kIoError, "connection buffer offset invalid"};
+      }
+
+      const std::size_t available = conn_buf.bytes.size() - conn_buf.consumed;
+      const std::uint8_t* decode_ptr =
+          (available == 0U) ? nullptr : (conn_buf.bytes.data() + conn_buf.consumed);
+      const Status decode_status = decoder_->Decode(decode_ptr, available, &result);
       if (!decode_status.Ok()) {
         if (decode_status.code == ErrorCode::kFrameError) {
           frame_decode_error_.fetch_add(1, std::memory_order_relaxed);
@@ -330,8 +387,9 @@ class EpollNetworkIngress final : public NetworkIngress {
         break;
       }
 
-      buf.erase(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(result.bytes_consumed));
-      if (buf.empty()) {
+      conn_buf.consumed += result.bytes_consumed;
+      CompactConnBuffer(&conn_buf);
+      if (conn_buf.bytes.empty()) {
         break;
       }
     }
@@ -346,25 +404,35 @@ class EpollNetworkIngress final : public NetworkIngress {
       const std::uint64_t task_id = next_task_id_.fetch_add(1, std::memory_order_relaxed);
       auto payload_buffer = std::make_unique<std::vector<std::uint8_t>>(
           frame.payload, frame.payload + frame.payload_size);
-      
+
+      auto payload_handle = std::make_unique<PayloadHandle>();
+      payload_handle->owner = this;
+      payload_handle->task_id = task_id;
+
       const void* payload_ptr = payload_buffer->data();
-      void* buffer_handle = payload_buffer.get();
-      
+      void* buffer_handle = payload_handle.get();
+
       // 先入缓冲池，再入队列（确保缓冲有效）。
-      payload_buffers_[task_id] = std::move(payload_buffer);
+      {
+        std::lock_guard<std::mutex> lock(payload_mu_);
+        payload_buffers_[task_id] = std::move(payload_buffer);
+        payload_handles_[task_id] = std::move(payload_handle);
+      }
 
       Task task{
           .task_id = task_id,
           .payload = payload_ptr,
           .payload_size = frame.payload_size,
           .response_handle = buffer_handle,
-          .executor = &CapacityModeExecutor,
+          .executor = custom_executor_ != nullptr ? custom_executor_ : &EpollNetworkIngress::IngressCapacityExecutor,
       };
 
       const Status s = queue_->Enqueue(task, 0);
       if (!s.Ok()) {
         // 入队失败时，从缓冲池移除该任务的缓冲（自动析构）。
+        std::lock_guard<std::mutex> lock(payload_mu_);
         payload_buffers_.erase(task_id);
+        payload_handles_.erase(task_id);
         return false;
       }
       completed_frames_.fetch_add(1, std::memory_order_relaxed);
@@ -380,26 +448,66 @@ class EpollNetworkIngress final : public NetworkIngress {
   }
 
   void CleanupAllFds() {
-    CloseFdIfValid(&listen_fd_);
+    for (const int listen_fd : listen_fds_) {
+      if (listen_fd >= 0) {
+        (void)::close(listen_fd);
+      }
+    }
+    listen_fds_.clear();
+    listen_fds_set_.clear();
     CloseFdIfValid(&epoll_fd_);
+  }
+
+  void CompactConnBuffer(ConnBuffer* conn_buf) {
+    if (conn_buf == nullptr || conn_buf->consumed == 0U) {
+      return;
+    }
+
+    if (conn_buf->consumed >= conn_buf->bytes.size()) {
+      conn_buf->bytes.clear();
+      conn_buf->consumed = 0U;
+      return;
+    }
+
+    const std::size_t remaining = conn_buf->bytes.size() - conn_buf->consumed;
+    const bool should_compact =
+        conn_buf->consumed >= kReadCompactThresholdBytes &&
+        conn_buf->consumed >= remaining;
+    if (!should_compact) {
+      return;
+    }
+
+    std::memmove(conn_buf->bytes.data(), conn_buf->bytes.data() + conn_buf->consumed, remaining);
+    conn_buf->bytes.resize(remaining);
+    conn_buf->consumed = 0U;
+  }
+
+  void ReleasePayload(const std::uint64_t task_id) {
+    std::lock_guard<std::mutex> lock(payload_mu_);
+    payload_buffers_.erase(task_id);
+    payload_handles_.erase(task_id);
   }
 
   std::shared_ptr<RingQueue> queue_;
   std::unique_ptr<FrameDecoder> decoder_;
+  TaskExecutor custom_executor_;  // 自定义 executor，若为 nullptr 则使用默认 IngressCapacityExecutor
   IngressConfig ingress_config_{};
 
   std::atomic<bool> running_;
   std::atomic<bool> backpressure_active_;
 
   int epoll_fd_;
-  int listen_fd_;
-  std::unordered_map<int, std::vector<std::uint8_t>> conn_buffers_;
+  std::vector<int> listen_fds_;
+  std::unordered_set<int> listen_fds_set_;
+  std::unordered_map<int, ConnBuffer> conn_buffers_;
   
   // 帧缓冲池：task_id -> payload 缓冲。
   // 每个入队的 Task 都有对应的缓冲，确保 payload 指针有效期覆盖任务执行周期。
   // 当线程池或上层应用处理完任务后，可通过 response_handle 查询并释放缓冲。
   // 在 Stop() 时统一清理所有遗留缓冲。
+  std::mutex payload_mu_;
   std::unordered_map<std::uint64_t, std::unique_ptr<std::vector<std::uint8_t>>> payload_buffers_;
+  std::unordered_map<std::uint64_t, std::unique_ptr<PayloadHandle>> payload_handles_;
 
   std::atomic<std::uint64_t> accepted_connections_;
   std::atomic<std::uint64_t> active_connections_;
@@ -415,7 +523,13 @@ class EpollNetworkIngress final : public NetworkIngress {
 
 std::unique_ptr<NetworkIngress> MakeEpollNetworkIngress(std::shared_ptr<RingQueue> queue,
                                                         std::unique_ptr<FrameDecoder> decoder) {
-  return std::make_unique<EpollNetworkIngress>(std::move(queue), std::move(decoder));
+  return std::make_unique<EpollNetworkIngress>(std::move(queue), std::move(decoder), nullptr);
+}
+
+std::unique_ptr<NetworkIngress> MakeEpollNetworkIngressWithExecutor(std::shared_ptr<RingQueue> queue,
+                                                                     std::unique_ptr<FrameDecoder> decoder,
+                                                                     TaskExecutor executor) {
+  return std::make_unique<EpollNetworkIngress>(std::move(queue), std::move(decoder), executor);
 }
 
 }  // namespace robotaxi

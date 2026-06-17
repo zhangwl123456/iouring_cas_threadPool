@@ -52,6 +52,10 @@ add_executable(thread_pool_test
   tests/thread_pool_test.cpp
 )
 
+add_executable(capacity_baseline_benchmark
+  benchmarks/capacity_benchmark.cpp
+)
+
 target_link_libraries(ring_queue_enqueue_test
   PRIVATE
     robotaxi_core
@@ -80,6 +84,20 @@ target_link_libraries(thread_pool_test
   PRIVATE
     robotaxi_core
     GTest::gtest_main
+)
+
+target_link_libraries(capacity_baseline_benchmark
+  PRIVATE
+    robotaxi_core
+)
+
+add_executable(e2e_benchmark
+  benchmarks/e2e_benchmark.cpp
+)
+
+target_link_libraries(e2e_benchmark
+  PRIVATE
+    robotaxi_core
 )
 
 include(GoogleTest)

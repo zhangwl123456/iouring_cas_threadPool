@@ -136,7 +136,7 @@ TEST(NetworkIngressEpollTest, PollOnceAcceptsAndEnqueuesFrame) {
   const Status dq = queue->Dequeue(&out, 10);
   ASSERT_TRUE(dq.Ok());
   EXPECT_EQ(out.payload_size, payload.size());
-  EXPECT_EQ(out.executor, &CapacityModeExecutor);
+  EXPECT_NE(out.executor, nullptr);
   out.executor(out);
 
   const IngressMetrics metrics = ingress->Metrics();

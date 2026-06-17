@@ -1,0 +1,30 @@
+# CMake build directory
+build/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Object files and compiled binaries
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Dependencies
+/dependencies/
+/third_party/
+
+# Generated files
+*.pb.h
+*.pb.cc
+
+# Test results
+*.gcda
+*.gcno
