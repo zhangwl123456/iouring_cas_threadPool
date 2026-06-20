@@ -69,10 +69,24 @@ include CMakeFiles/robotaxi_core.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/robotaxi_core.dir/flags.make
 
+CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o: CMakeFiles/robotaxi_core.dir/flags.make
+CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o: /workspaces/iouring_cas_threadPool/src/capacity_executor.cpp
+CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o: CMakeFiles/robotaxi_core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o -MF CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o.d -o CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o -c /workspaces/iouring_cas_threadPool/src/capacity_executor.cpp
+
+CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /workspaces/iouring_cas_threadPool/src/capacity_executor.cpp > CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.i
+
+CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /workspaces/iouring_cas_threadPool/src/capacity_executor.cpp -o CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.s
+
 CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o: CMakeFiles/robotaxi_core.dir/flags.make
 CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o: /workspaces/iouring_cas_threadPool/src/frame_decoder.cpp
 CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o: CMakeFiles/robotaxi_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o -MF CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o.d -o CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o -c /workspaces/iouring_cas_threadPool/src/frame_decoder.cpp
 
 CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.i: cmake_force
@@ -83,10 +97,24 @@ CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /workspaces/iouring_cas_threadPool/src/frame_decoder.cpp -o CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.s
 
+CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o: CMakeFiles/robotaxi_core.dir/flags.make
+CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o: /workspaces/iouring_cas_threadPool/src/network_ingress_epoll.cpp
+CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o: CMakeFiles/robotaxi_core.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o -MF CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o.d -o CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o -c /workspaces/iouring_cas_threadPool/src/network_ingress_epoll.cpp
+
+CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /workspaces/iouring_cas_threadPool/src/network_ingress_epoll.cpp > CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.i
+
+CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /workspaces/iouring_cas_threadPool/src/network_ingress_epoll.cpp -o CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.s
+
 CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o: CMakeFiles/robotaxi_core.dir/flags.make
 CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o: /workspaces/iouring_cas_threadPool/src/ring_queue.cpp
 CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o: CMakeFiles/robotaxi_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o -MF CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o.d -o CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o -c /workspaces/iouring_cas_threadPool/src/ring_queue.cpp
 
 CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.i: cmake_force
@@ -100,7 +128,7 @@ CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.s: cmake_force
 CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o: CMakeFiles/robotaxi_core.dir/flags.make
 CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o: /workspaces/iouring_cas_threadPool/src/thread_pool.cpp
 CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o: CMakeFiles/robotaxi_core.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o -MF CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o.d -o CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o -c /workspaces/iouring_cas_threadPool/src/thread_pool.cpp
 
 CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.i: cmake_force
@@ -113,19 +141,23 @@ CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.s: cmake_force
 
 # Object files for target robotaxi_core
 robotaxi_core_OBJECTS = \
+"CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o" \
 "CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o" \
+"CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o" \
 "CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o" \
 "CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o"
 
 # External object files for target robotaxi_core
 robotaxi_core_EXTERNAL_OBJECTS =
 
+librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o
 librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.o
+librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o
 librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/src/ring_queue.cpp.o
 librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.o
 librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/build.make
 librobotaxi_core.a: CMakeFiles/robotaxi_core.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX static library librobotaxi_core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX static library librobotaxi_core.a"
 	$(CMAKE_COMMAND) -P CMakeFiles/robotaxi_core.dir/cmake_clean_target.cmake
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/robotaxi_core.dir/link.txt --verbose=$(VERBOSE)
 

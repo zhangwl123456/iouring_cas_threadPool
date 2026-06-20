@@ -2,6 +2,7 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
@@ -36,7 +37,7 @@ struct E2EBenchmarkConfig {
   std::uint32_t queue_capacity = 65536;
   std::uint32_t payload_bytes = 256;
   std::uint32_t client_connections = 4;
-  std::uint32_t bind_port = 9999;
+  std::uint32_t bind_port = 0;
   std::string output_format = "json";
   std::string output_file;
 };
@@ -106,6 +107,32 @@ std::uint64_t ReadBe64(const std::uint8_t* bytes) {
     value = (value << 8U) | static_cast<std::uint64_t>(bytes[i]);
   }
   return value;
+}
+
+std::uint32_t AllocateBenchmarkPort() {
+  const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
+  if (fd < 0) {
+    return 0U;
+  }
+
+  sockaddr_in addr{};
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(0);
+  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+  if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+    ::close(fd);
+    return 0U;
+  }
+
+  socklen_t len = sizeof(addr);
+  if (::getsockname(fd, reinterpret_cast<sockaddr*>(&addr), &len) < 0) {
+    ::close(fd);
+    return 0U;
+  }
+
+  ::close(fd);
+  return static_cast<std::uint32_t>(ntohs(addr.sin_port));
 }
 
 bool IsPowerOfTwo(std::uint32_t value) {
@@ -208,8 +235,8 @@ bool ParseE2EConfig(int argc, const char** argv, E2EBenchmarkConfig* out) {
         return false;
       }
     } else if (arg == "--port" && i + 1 < argc) {
-      if (!ParseUnsigned32(argv[++i], &out->bind_port) || out->bind_port == 0 || out->bind_port > 65535) {
-        std::cerr << "Error: --port must be in (0, 65535]" << std::endl;
+      if (!ParseUnsigned32(argv[++i], &out->bind_port) || out->bind_port > 65535) {
+        std::cerr << "Error: --port must be in [0, 65535]" << std::endl;
         return false;
       }
     } else if (arg == "--output-format" && i + 1 < argc) {
@@ -228,7 +255,7 @@ bool ParseE2EConfig(int argc, const char** argv, E2EBenchmarkConfig* out) {
                 << "  --queue-capacity N         Queue capacity, power of 2 (default: 65536)\n"
                 << "  --payload-bytes N          Payload size (default: 256)\n"
                 << "  --client-connections N     Client connection count (default: 4)\n"
-                << "  --port N                   Server bind port (default: 9999)\n"
+                << "  --port N                   Server bind port, 0 means auto-select (default: 0)\n"
                 << "  --output-format FMT        json or csv (default: json)\n"
                 << "  --output-file FILE         Write result to file\n"
                 << "  --help                     Show this help\n";
@@ -331,8 +358,21 @@ class E2ETcpClient {
     server_addr.sin_port = htons(port_);
     server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
-    if (::connect(sock, reinterpret_cast<const struct sockaddr*>(&server_addr),
-                  sizeof(server_addr)) < 0) {
+    bool connected = false;
+    for (std::uint32_t retry = 0; retry < 50U; ++retry) {
+      if (::connect(sock, reinterpret_cast<const struct sockaddr*>(&server_addr), sizeof(server_addr)) == 0) {
+        connected = true;
+        break;
+      }
+
+      if (errno != ECONNREFUSED && errno != EINTR) {
+        break;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    if (!connected) {
       g_connection_failed.fetch_add(1, std::memory_order_relaxed);
       ::close(sock);
       return;
@@ -362,8 +402,24 @@ class E2ETcpClient {
       }
 
       // 发送整个 payload（含长度字段）
-      ssize_t sent = ::send(sock, payload.data(), payload.size(), 0);
-      if (sent < 0 || static_cast<size_t>(sent) != payload.size()) {
+      std::size_t sent_total = 0;
+      while (sent_total < payload.size()) {
+        const ssize_t sent = ::send(sock, payload.data() + sent_total, payload.size() - sent_total, 0);
+        if (sent < 0) {
+          if (errno == EINTR) {
+            continue;
+          }
+          g_send_failed.fetch_add(1, std::memory_order_relaxed);
+          break;
+        }
+        if (sent == 0) {
+          g_send_failed.fetch_add(1, std::memory_order_relaxed);
+          break;
+        }
+        sent_total += static_cast<std::size_t>(sent);
+      }
+
+      if (sent_total != payload.size()) {
         g_send_failed.fetch_add(1, std::memory_order_relaxed);
       }
     }
@@ -380,9 +436,12 @@ class E2ETcpClient {
 // Server 侧事件循环
 // ============================================================================
 
-Status RunE2EServer(std::shared_ptr<RingQueue> queue, std::unique_ptr<ThreadPool> pool,
-                     std::unique_ptr<NetworkIngress> ingress, std::uint64_t expected_tasks,
-                     std::uint32_t poll_timeout_ms) {
+Status RunE2EServer(NetworkIngress* ingress, ThreadPool* pool, std::uint64_t expected_tasks,
+                    std::uint32_t poll_timeout_ms) {
+  if (ingress == nullptr || pool == nullptr) {
+    return {ErrorCode::kInvalidArgument, "ingress/pool is null"};
+  }
+
   // 等待所有任务完成（或超时）
   const auto start_time = std::chrono::steady_clock::now();
   const auto max_wait = std::chrono::seconds(300);  // 5 分钟超时
@@ -463,10 +522,17 @@ bool RunE2EBenchmark(const E2EBenchmarkConfig& config, E2EBenchmarkResult* resul
   }
 
   // 4. 启动 NetworkIngress
+  const std::uint32_t effective_port = (config.bind_port == 0U) ? AllocateBenchmarkPort() : config.bind_port;
+  if (effective_port == 0U) {
+    std::cerr << "Failed to allocate benchmark port" << std::endl;
+    pool->Stop(5000);
+    return false;
+  }
+
   IngressConfig ingress_config{
       .backend_type = IngressBackendType::kEpoll,
       .bind_ip = "127.0.0.1",
-      .bind_port = config.bind_port,
+      .bind_port = static_cast<std::uint16_t>(effective_port),
       .listen_backlog = 128,
       .recv_buffer_size = 65536,
       .send_buffer_size = 65536,
@@ -499,23 +565,28 @@ bool RunE2EBenchmark(const E2EBenchmarkConfig& config, E2EBenchmarkResult* resul
   const std::uint64_t tasks_per_conn = (config.total_tasks + config.client_connections - 1) / config.client_connections;
 
   for (std::uint32_t i = 0; i < config.client_connections; ++i) {
-    client_threads.emplace_back([&config, tasks_per_conn]() {
-      E2ETcpClient client(config.bind_port, config.payload_bytes);
+    client_threads.emplace_back([effective_port, &config, tasks_per_conn]() {
+      E2ETcpClient client(effective_port, config.payload_bytes);
       client.SendTasksFromConnection(tasks_per_conn);
     });
   }
 
   // 8. Server 侧跑事件循环，等待任务完成
-  s = RunE2EServer(queue, std::move(pool), std::move(ingress), config.total_tasks, 100);
+  s = RunE2EServer(ingress.get(), pool.get(), config.total_tasks, 100);
 
   // 9. 等待 Client 线程全部退出
   for (auto& t : client_threads) {
     t.join();
   }
 
-  // 10. 停止 ingress 与 pool
-  ingress->Stop(5000);
+  // 10. 采集停止前快照并收尾
+  result->queue_metrics = queue->Metrics();
+  result->thread_pool_metrics = pool->Metrics();
+  result->executor_metrics = GetCapacityExecutorMetrics();
+  result->ingress_metrics = ingress->Metrics();
+
   pool->Stop(5000);
+  ingress->Stop(5000);
 
   // 11. 记录时间
   const auto benchmark_end = std::chrono::steady_clock::now();
@@ -544,11 +615,6 @@ bool RunE2EBenchmark(const E2EBenchmarkConfig& config, E2EBenchmarkResult* resul
   result->connection_failed = g_connection_failed.load(std::memory_order_relaxed);
   result->send_failed = g_send_failed.load(std::memory_order_relaxed);
 
-  result->queue_metrics = queue->Metrics();
-  result->thread_pool_metrics = pool->Metrics();
-  result->executor_metrics = GetCapacityExecutorMetrics();
-  result->ingress_metrics = ingress->Metrics();
-
   return true;
 }
 
@@ -573,7 +639,7 @@ int main(int argc, const char** argv) {
             << "  Queue Capacity: " << config.queue_capacity << "\n"
             << "  Payload Bytes: " << config.payload_bytes << "\n"
             << "  Client Connections: " << config.client_connections << "\n"
-            << "  Bind Port: " << config.bind_port << "\n"
+            << "  Bind Port: " << (config.bind_port == 0U ? std::string("auto") : std::to_string(config.bind_port)) << "\n"
             << std::endl;
 
   E2EBenchmarkResult result;

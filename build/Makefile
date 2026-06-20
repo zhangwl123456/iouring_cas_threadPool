@@ -211,6 +211,32 @@ frame_decoder_test/fast:
 .PHONY : frame_decoder_test/fast
 
 #=============================================================================
+# Target rules for targets named network_ingress_epoll_test
+
+# Build rule for target.
+network_ingress_epoll_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 network_ingress_epoll_test
+.PHONY : network_ingress_epoll_test
+
+# fast build rule for target.
+network_ingress_epoll_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/build
+.PHONY : network_ingress_epoll_test/fast
+
+#=============================================================================
+# Target rules for targets named capacity_executor_test
+
+# Build rule for target.
+capacity_executor_test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 capacity_executor_test
+.PHONY : capacity_executor_test
+
+# fast build rule for target.
+capacity_executor_test/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/build
+.PHONY : capacity_executor_test/fast
+
+#=============================================================================
 # Target rules for targets named thread_pool_test
 
 # Build rule for target.
@@ -222,6 +248,32 @@ thread_pool_test: cmake_check_build_system
 thread_pool_test/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/thread_pool_test.dir/build.make CMakeFiles/thread_pool_test.dir/build
 .PHONY : thread_pool_test/fast
+
+#=============================================================================
+# Target rules for targets named capacity_baseline_benchmark
+
+# Build rule for target.
+capacity_baseline_benchmark: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 capacity_baseline_benchmark
+.PHONY : capacity_baseline_benchmark
+
+# fast build rule for target.
+capacity_baseline_benchmark/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/build
+.PHONY : capacity_baseline_benchmark/fast
+
+#=============================================================================
+# Target rules for targets named e2e_benchmark
+
+# Build rule for target.
+e2e_benchmark: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 e2e_benchmark
+.PHONY : e2e_benchmark
+
+# fast build rule for target.
+e2e_benchmark/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/build
+.PHONY : e2e_benchmark/fast
 
 #=============================================================================
 # Target rules for targets named gmock
@@ -275,6 +327,78 @@ gtest_main/fast:
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build
 .PHONY : gtest_main/fast
 
+benchmarks/capacity_benchmark.o: benchmarks/capacity_benchmark.cpp.o
+.PHONY : benchmarks/capacity_benchmark.o
+
+# target to build an object file
+benchmarks/capacity_benchmark.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/benchmarks/capacity_benchmark.cpp.o
+.PHONY : benchmarks/capacity_benchmark.cpp.o
+
+benchmarks/capacity_benchmark.i: benchmarks/capacity_benchmark.cpp.i
+.PHONY : benchmarks/capacity_benchmark.i
+
+# target to preprocess a source file
+benchmarks/capacity_benchmark.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/benchmarks/capacity_benchmark.cpp.i
+.PHONY : benchmarks/capacity_benchmark.cpp.i
+
+benchmarks/capacity_benchmark.s: benchmarks/capacity_benchmark.cpp.s
+.PHONY : benchmarks/capacity_benchmark.s
+
+# target to generate assembly for a file
+benchmarks/capacity_benchmark.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/benchmarks/capacity_benchmark.cpp.s
+.PHONY : benchmarks/capacity_benchmark.cpp.s
+
+benchmarks/e2e_benchmark.o: benchmarks/e2e_benchmark.cpp.o
+.PHONY : benchmarks/e2e_benchmark.o
+
+# target to build an object file
+benchmarks/e2e_benchmark.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/benchmarks/e2e_benchmark.cpp.o
+.PHONY : benchmarks/e2e_benchmark.cpp.o
+
+benchmarks/e2e_benchmark.i: benchmarks/e2e_benchmark.cpp.i
+.PHONY : benchmarks/e2e_benchmark.i
+
+# target to preprocess a source file
+benchmarks/e2e_benchmark.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/benchmarks/e2e_benchmark.cpp.i
+.PHONY : benchmarks/e2e_benchmark.cpp.i
+
+benchmarks/e2e_benchmark.s: benchmarks/e2e_benchmark.cpp.s
+.PHONY : benchmarks/e2e_benchmark.s
+
+# target to generate assembly for a file
+benchmarks/e2e_benchmark.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/benchmarks/e2e_benchmark.cpp.s
+.PHONY : benchmarks/e2e_benchmark.cpp.s
+
+src/capacity_executor.o: src/capacity_executor.cpp.o
+.PHONY : src/capacity_executor.o
+
+# target to build an object file
+src/capacity_executor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.o
+.PHONY : src/capacity_executor.cpp.o
+
+src/capacity_executor.i: src/capacity_executor.cpp.i
+.PHONY : src/capacity_executor.i
+
+# target to preprocess a source file
+src/capacity_executor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.i
+.PHONY : src/capacity_executor.cpp.i
+
+src/capacity_executor.s: src/capacity_executor.cpp.s
+.PHONY : src/capacity_executor.s
+
+# target to generate assembly for a file
+src/capacity_executor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/capacity_executor.cpp.s
+.PHONY : src/capacity_executor.cpp.s
+
 src/frame_decoder.o: src/frame_decoder.cpp.o
 .PHONY : src/frame_decoder.o
 
@@ -298,6 +422,30 @@ src/frame_decoder.s: src/frame_decoder.cpp.s
 src/frame_decoder.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/frame_decoder.cpp.s
 .PHONY : src/frame_decoder.cpp.s
+
+src/network_ingress_epoll.o: src/network_ingress_epoll.cpp.o
+.PHONY : src/network_ingress_epoll.o
+
+# target to build an object file
+src/network_ingress_epoll.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.o
+.PHONY : src/network_ingress_epoll.cpp.o
+
+src/network_ingress_epoll.i: src/network_ingress_epoll.cpp.i
+.PHONY : src/network_ingress_epoll.i
+
+# target to preprocess a source file
+src/network_ingress_epoll.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.i
+.PHONY : src/network_ingress_epoll.cpp.i
+
+src/network_ingress_epoll.s: src/network_ingress_epoll.cpp.s
+.PHONY : src/network_ingress_epoll.s
+
+# target to generate assembly for a file
+src/network_ingress_epoll.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/network_ingress_epoll.cpp.s
+.PHONY : src/network_ingress_epoll.cpp.s
 
 src/ring_queue.o: src/ring_queue.cpp.o
 .PHONY : src/ring_queue.o
@@ -347,6 +495,30 @@ src/thread_pool.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/src/thread_pool.cpp.s
 .PHONY : src/thread_pool.cpp.s
 
+tests/capacity_executor_test.o: tests/capacity_executor_test.cpp.o
+.PHONY : tests/capacity_executor_test.o
+
+# target to build an object file
+tests/capacity_executor_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/tests/capacity_executor_test.cpp.o
+.PHONY : tests/capacity_executor_test.cpp.o
+
+tests/capacity_executor_test.i: tests/capacity_executor_test.cpp.i
+.PHONY : tests/capacity_executor_test.i
+
+# target to preprocess a source file
+tests/capacity_executor_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/tests/capacity_executor_test.cpp.i
+.PHONY : tests/capacity_executor_test.cpp.i
+
+tests/capacity_executor_test.s: tests/capacity_executor_test.cpp.s
+.PHONY : tests/capacity_executor_test.s
+
+# target to generate assembly for a file
+tests/capacity_executor_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/tests/capacity_executor_test.cpp.s
+.PHONY : tests/capacity_executor_test.cpp.s
+
 tests/frame_decoder_test.o: tests/frame_decoder_test.cpp.o
 .PHONY : tests/frame_decoder_test.o
 
@@ -370,6 +542,30 @@ tests/frame_decoder_test.s: tests/frame_decoder_test.cpp.s
 tests/frame_decoder_test.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/frame_decoder_test.dir/build.make CMakeFiles/frame_decoder_test.dir/tests/frame_decoder_test.cpp.s
 .PHONY : tests/frame_decoder_test.cpp.s
+
+tests/network_ingress_epoll_test.o: tests/network_ingress_epoll_test.cpp.o
+.PHONY : tests/network_ingress_epoll_test.o
+
+# target to build an object file
+tests/network_ingress_epoll_test.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/tests/network_ingress_epoll_test.cpp.o
+.PHONY : tests/network_ingress_epoll_test.cpp.o
+
+tests/network_ingress_epoll_test.i: tests/network_ingress_epoll_test.cpp.i
+.PHONY : tests/network_ingress_epoll_test.i
+
+# target to preprocess a source file
+tests/network_ingress_epoll_test.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/tests/network_ingress_epoll_test.cpp.i
+.PHONY : tests/network_ingress_epoll_test.cpp.i
+
+tests/network_ingress_epoll_test.s: tests/network_ingress_epoll_test.cpp.s
+.PHONY : tests/network_ingress_epoll_test.s
+
+# target to generate assembly for a file
+tests/network_ingress_epoll_test.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/tests/network_ingress_epoll_test.cpp.s
+.PHONY : tests/network_ingress_epoll_test.cpp.s
 
 tests/ring_queue_enqueue_test.o: tests/ring_queue_enqueue_test.cpp.o
 .PHONY : tests/ring_queue_enqueue_test.o
@@ -432,26 +628,48 @@ help:
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
 	@echo "... test"
+	@echo "... capacity_baseline_benchmark"
+	@echo "... capacity_executor_test"
+	@echo "... e2e_benchmark"
 	@echo "... frame_decoder_test"
 	@echo "... gmock"
 	@echo "... gmock_main"
 	@echo "... gtest"
 	@echo "... gtest_main"
+	@echo "... network_ingress_epoll_test"
 	@echo "... ring_queue_enqueue_test"
 	@echo "... robotaxi_core"
 	@echo "... thread_pool_test"
+	@echo "... benchmarks/capacity_benchmark.o"
+	@echo "... benchmarks/capacity_benchmark.i"
+	@echo "... benchmarks/capacity_benchmark.s"
+	@echo "... benchmarks/e2e_benchmark.o"
+	@echo "... benchmarks/e2e_benchmark.i"
+	@echo "... benchmarks/e2e_benchmark.s"
+	@echo "... src/capacity_executor.o"
+	@echo "... src/capacity_executor.i"
+	@echo "... src/capacity_executor.s"
 	@echo "... src/frame_decoder.o"
 	@echo "... src/frame_decoder.i"
 	@echo "... src/frame_decoder.s"
+	@echo "... src/network_ingress_epoll.o"
+	@echo "... src/network_ingress_epoll.i"
+	@echo "... src/network_ingress_epoll.s"
 	@echo "... src/ring_queue.o"
 	@echo "... src/ring_queue.i"
 	@echo "... src/ring_queue.s"
 	@echo "... src/thread_pool.o"
 	@echo "... src/thread_pool.i"
 	@echo "... src/thread_pool.s"
+	@echo "... tests/capacity_executor_test.o"
+	@echo "... tests/capacity_executor_test.i"
+	@echo "... tests/capacity_executor_test.s"
 	@echo "... tests/frame_decoder_test.o"
 	@echo "... tests/frame_decoder_test.i"
 	@echo "... tests/frame_decoder_test.s"
+	@echo "... tests/network_ingress_epoll_test.o"
+	@echo "... tests/network_ingress_epoll_test.i"
+	@echo "... tests/network_ingress_epoll_test.s"
 	@echo "... tests/ring_queue_enqueue_test.o"
 	@echo "... tests/ring_queue_enqueue_test.i"
 	@echo "... tests/ring_queue_enqueue_test.s"

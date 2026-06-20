@@ -217,16 +217,16 @@ class EpollNetworkIngress final : public NetworkIngress {
         continue;
       }
 
-      if ((ev & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0U) {
-        CloseConnection(fd);
-        continue;
-      }
-
       if ((ev & EPOLLIN) != 0U) {
         const Status s = HandleRead(fd);
         if (!s.Ok()) {
           return s;
         }
+      }
+
+      if ((ev & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0U) {
+        CloseConnection(fd);
+        continue;
       }
     }
 
@@ -341,12 +341,13 @@ class EpollNetworkIngress final : public NetworkIngress {
 
     ConnBuffer& conn_buf = it->second;
     std::uint8_t tmp[kReadChunkSize];
+    bool peer_closed = false;
 
     for (;;) {
       const ssize_t n = ::recv(conn_fd, tmp, sizeof(tmp), 0);
       if (n == 0) {
-        CloseConnection(conn_fd);
-        return Status::Success();
+        peer_closed = true;
+        break;
       }
       if (n < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -392,6 +393,10 @@ class EpollNetworkIngress final : public NetworkIngress {
       if (conn_buf.bytes.empty()) {
         break;
       }
+    }
+
+    if (peer_closed) {
+      CloseConnection(conn_fd);
     }
 
     return Status::Success();
@@ -441,6 +446,9 @@ class EpollNetworkIngress final : public NetworkIngress {
   }
 
   void CloseConnection(const int conn_fd) {
+    if (conn_buffers_.find(conn_fd) == conn_buffers_.end()) {
+      return;
+    }
     (void)::epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, conn_fd, nullptr);
     (void)::close(conn_fd);
     conn_buffers_.erase(conn_fd);

@@ -66,7 +66,11 @@ CMAKE_BINARY_DIR = /workspaces/iouring_cas_threadPool/build
 all: CMakeFiles/robotaxi_core.dir/all
 all: CMakeFiles/ring_queue_enqueue_test.dir/all
 all: CMakeFiles/frame_decoder_test.dir/all
+all: CMakeFiles/network_ingress_epoll_test.dir/all
+all: CMakeFiles/capacity_executor_test.dir/all
 all: CMakeFiles/thread_pool_test.dir/all
+all: CMakeFiles/capacity_baseline_benchmark.dir/all
+all: CMakeFiles/e2e_benchmark.dir/all
 all: _deps/googletest-build/all
 .PHONY : all
 
@@ -78,7 +82,11 @@ preinstall: _deps/googletest-build/preinstall
 clean: CMakeFiles/robotaxi_core.dir/clean
 clean: CMakeFiles/ring_queue_enqueue_test.dir/clean
 clean: CMakeFiles/frame_decoder_test.dir/clean
+clean: CMakeFiles/network_ingress_epoll_test.dir/clean
+clean: CMakeFiles/capacity_executor_test.dir/clean
 clean: CMakeFiles/thread_pool_test.dir/clean
+clean: CMakeFiles/capacity_baseline_benchmark.dir/clean
+clean: CMakeFiles/e2e_benchmark.dir/clean
 clean: _deps/googletest-build/clean
 .PHONY : clean
 
@@ -140,12 +148,12 @@ _deps/googletest-build/googletest/clean: _deps/googletest-build/googletest/CMake
 CMakeFiles/robotaxi_core.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/robotaxi_core.dir/build.make CMakeFiles/robotaxi_core.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=13,14,15,16 "Built target robotaxi_core"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=21,22,23,24,25,26 "Built target robotaxi_core"
 .PHONY : CMakeFiles/robotaxi_core.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/robotaxi_core.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 4
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 6
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/robotaxi_core.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
 .PHONY : CMakeFiles/robotaxi_core.dir/rule
@@ -168,12 +176,12 @@ CMakeFiles/ring_queue_enqueue_test.dir/all: _deps/googletest-build/googletest/CM
 CMakeFiles/ring_queue_enqueue_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ring_queue_enqueue_test.dir/build.make CMakeFiles/ring_queue_enqueue_test.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/ring_queue_enqueue_test.dir/build.make CMakeFiles/ring_queue_enqueue_test.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=11,12 "Built target ring_queue_enqueue_test"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=19,20 "Built target ring_queue_enqueue_test"
 .PHONY : CMakeFiles/ring_queue_enqueue_test.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/ring_queue_enqueue_test.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ring_queue_enqueue_test.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
 .PHONY : CMakeFiles/ring_queue_enqueue_test.dir/rule
@@ -196,12 +204,12 @@ CMakeFiles/frame_decoder_test.dir/all: _deps/googletest-build/googletest/CMakeFi
 CMakeFiles/frame_decoder_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/frame_decoder_test.dir/build.make CMakeFiles/frame_decoder_test.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/frame_decoder_test.dir/build.make CMakeFiles/frame_decoder_test.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=1,2 "Built target frame_decoder_test"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=7,8 "Built target frame_decoder_test"
 .PHONY : CMakeFiles/frame_decoder_test.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/frame_decoder_test.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/frame_decoder_test.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
 .PHONY : CMakeFiles/frame_decoder_test.dir/rule
@@ -216,6 +224,62 @@ CMakeFiles/frame_decoder_test.dir/clean:
 .PHONY : CMakeFiles/frame_decoder_test.dir/clean
 
 #=============================================================================
+# Target rules for target CMakeFiles/network_ingress_epoll_test.dir
+
+# All Build rule for target.
+CMakeFiles/network_ingress_epoll_test.dir/all: CMakeFiles/robotaxi_core.dir/all
+CMakeFiles/network_ingress_epoll_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
+CMakeFiles/network_ingress_epoll_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=17,18 "Built target network_ingress_epoll_test"
+.PHONY : CMakeFiles/network_ingress_epoll_test.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/network_ingress_epoll_test.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/network_ingress_epoll_test.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
+.PHONY : CMakeFiles/network_ingress_epoll_test.dir/rule
+
+# Convenience name for target.
+network_ingress_epoll_test: CMakeFiles/network_ingress_epoll_test.dir/rule
+.PHONY : network_ingress_epoll_test
+
+# clean rule for target.
+CMakeFiles/network_ingress_epoll_test.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/network_ingress_epoll_test.dir/build.make CMakeFiles/network_ingress_epoll_test.dir/clean
+.PHONY : CMakeFiles/network_ingress_epoll_test.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/capacity_executor_test.dir
+
+# All Build rule for target.
+CMakeFiles/capacity_executor_test.dir/all: CMakeFiles/robotaxi_core.dir/all
+CMakeFiles/capacity_executor_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
+CMakeFiles/capacity_executor_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=3,4 "Built target capacity_executor_test"
+.PHONY : CMakeFiles/capacity_executor_test.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/capacity_executor_test.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/capacity_executor_test.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
+.PHONY : CMakeFiles/capacity_executor_test.dir/rule
+
+# Convenience name for target.
+capacity_executor_test: CMakeFiles/capacity_executor_test.dir/rule
+.PHONY : capacity_executor_test
+
+# clean rule for target.
+CMakeFiles/capacity_executor_test.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_executor_test.dir/build.make CMakeFiles/capacity_executor_test.dir/clean
+.PHONY : CMakeFiles/capacity_executor_test.dir/clean
+
+#=============================================================================
 # Target rules for target CMakeFiles/thread_pool_test.dir
 
 # All Build rule for target.
@@ -224,12 +288,12 @@ CMakeFiles/thread_pool_test.dir/all: _deps/googletest-build/googletest/CMakeFile
 CMakeFiles/thread_pool_test.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/thread_pool_test.dir/build.make CMakeFiles/thread_pool_test.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/thread_pool_test.dir/build.make CMakeFiles/thread_pool_test.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=17,18 "Built target thread_pool_test"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=27,28 "Built target thread_pool_test"
 .PHONY : CMakeFiles/thread_pool_test.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/thread_pool_test.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 10
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 12
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/thread_pool_test.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
 .PHONY : CMakeFiles/thread_pool_test.dir/rule
@@ -244,13 +308,65 @@ CMakeFiles/thread_pool_test.dir/clean:
 .PHONY : CMakeFiles/thread_pool_test.dir/clean
 
 #=============================================================================
+# Target rules for target CMakeFiles/capacity_baseline_benchmark.dir
+
+# All Build rule for target.
+CMakeFiles/capacity_baseline_benchmark.dir/all: CMakeFiles/robotaxi_core.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=1,2 "Built target capacity_baseline_benchmark"
+.PHONY : CMakeFiles/capacity_baseline_benchmark.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/capacity_baseline_benchmark.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 8
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/capacity_baseline_benchmark.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
+.PHONY : CMakeFiles/capacity_baseline_benchmark.dir/rule
+
+# Convenience name for target.
+capacity_baseline_benchmark: CMakeFiles/capacity_baseline_benchmark.dir/rule
+.PHONY : capacity_baseline_benchmark
+
+# clean rule for target.
+CMakeFiles/capacity_baseline_benchmark.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/capacity_baseline_benchmark.dir/build.make CMakeFiles/capacity_baseline_benchmark.dir/clean
+.PHONY : CMakeFiles/capacity_baseline_benchmark.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/e2e_benchmark.dir
+
+# All Build rule for target.
+CMakeFiles/e2e_benchmark.dir/all: CMakeFiles/robotaxi_core.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=5,6 "Built target e2e_benchmark"
+.PHONY : CMakeFiles/e2e_benchmark.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/e2e_benchmark.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 8
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/e2e_benchmark.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /workspaces/iouring_cas_threadPool/build/CMakeFiles 0
+.PHONY : CMakeFiles/e2e_benchmark.dir/rule
+
+# Convenience name for target.
+e2e_benchmark: CMakeFiles/e2e_benchmark.dir/rule
+.PHONY : e2e_benchmark
+
+# clean rule for target.
+CMakeFiles/e2e_benchmark.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/e2e_benchmark.dir/build.make CMakeFiles/e2e_benchmark.dir/clean
+.PHONY : CMakeFiles/e2e_benchmark.dir/clean
+
+#=============================================================================
 # Target rules for target _deps/googletest-build/googlemock/CMakeFiles/gmock.dir
 
 # All Build rule for target.
 _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/depend
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=3,4 "Built target gmock"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=9,10 "Built target gmock"
 .PHONY : _deps/googletest-build/googlemock/CMakeFiles/gmock.dir/all
 
 # Build rule for subdir invocation for target.
@@ -277,7 +393,7 @@ _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/all: _deps/googletes
 _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/depend
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build.make _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=5,6 "Built target gmock_main"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=11,12 "Built target gmock_main"
 .PHONY : _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/all
 
 # Build rule for subdir invocation for target.
@@ -303,7 +419,7 @@ _deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/clean:
 _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all:
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/depend
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=7,8 "Built target gtest"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=13,14 "Built target gtest"
 .PHONY : _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
 
 # Build rule for subdir invocation for target.
@@ -329,7 +445,7 @@ _deps/googletest-build/googletest/CMakeFiles/gtest.dir/clean:
 _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all: _deps/googletest-build/googletest/CMakeFiles/gtest.dir/all
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/depend
 	$(MAKE) $(MAKESILENT) -f _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build.make _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=9,10 "Built target gtest_main"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/workspaces/iouring_cas_threadPool/build/CMakeFiles --progress-num=15,16 "Built target gtest_main"
 .PHONY : _deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/all
 
 # Build rule for subdir invocation for target.

@@ -1,7 +1,11 @@
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/robotaxi_core.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/ring_queue_enqueue_test.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/frame_decoder_test.dir
+/workspaces/iouring_cas_threadPool/build/CMakeFiles/network_ingress_epoll_test.dir
+/workspaces/iouring_cas_threadPool/build/CMakeFiles/capacity_executor_test.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/thread_pool_test.dir
+/workspaces/iouring_cas_threadPool/build/CMakeFiles/capacity_baseline_benchmark.dir
+/workspaces/iouring_cas_threadPool/build/CMakeFiles/e2e_benchmark.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/test.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/edit_cache.dir
 /workspaces/iouring_cas_threadPool/build/CMakeFiles/rebuild_cache.dir

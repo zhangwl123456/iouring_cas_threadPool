@@ -6,5 +6,7 @@
 # testing this directory and lists subdirectories to be tested as well.
 include("/workspaces/iouring_cas_threadPool/build/ring_queue_enqueue_test[1]_include.cmake")
 include("/workspaces/iouring_cas_threadPool/build/frame_decoder_test[1]_include.cmake")
+include("/workspaces/iouring_cas_threadPool/build/network_ingress_epoll_test[1]_include.cmake")
+include("/workspaces/iouring_cas_threadPool/build/capacity_executor_test[1]_include.cmake")
 include("/workspaces/iouring_cas_threadPool/build/thread_pool_test[1]_include.cmake")
 subdirs("_deps/googletest-build")
