@@ -1,0 +1,43 @@
+{
+  "total_tasks": 20000,
+  "worker_threads": 4,
+  "queue_capacity": 8192,
+  "payload_bytes": 512,
+  "client_connections": 4,
+  "duration_ms": 145.00,
+  "throughput_fps": 137931.03,
+  "throughput_tps": 137931.03,
+  "latency_us": {
+    "p50": 64800.92,
+    "p99": 109873.54,
+    "p999": 110268.01
+  },
+  "stability": {
+    "connection_success": 4,
+    "connection_failed": 0,
+    "send_failed": 0
+  },
+  "queue_metrics": {
+    "capacity": 8192,
+    "size": 0,
+    "enqueue_success": 20000,
+    "enqueue_timeout": 0
+  },
+  "thread_pool_metrics": {
+    "configured_threads": 4,
+    "active_threads": 4,
+    "executed_tasks": 20000
+  },
+  "executor_metrics": {
+    "executed_tasks": 20000,
+    "invalid_payload_tasks": 0,
+    "parsed_header_tasks": 20000
+  },
+  "ingress_metrics": {
+    "accepted_connections": 4,
+    "active_connections": 0,
+    "completed_frames": 20000,
+    "frame_decode_error": 0,
+    "dropped_on_backpressure": 0
+  }
+}
