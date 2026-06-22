@@ -176,6 +176,73 @@ TEST(NetworkIngressEpollTest, PollOnceReturnsBackpressureWhenQueueIsFull) {
   EXPECT_TRUE(ingress->Stop(0).Ok());
 }
 
+TEST(NetworkIngressEpollTest, BackpressureHysteresisKeepsBackpressureAboveLowWatermark) {
+  auto queue = std::make_shared<CasRingQueue>(16);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  for (std::uint64_t i = 0; i < 14U; ++i) {
+    ASSERT_TRUE(queue->Enqueue(Task{.task_id = i + 1,
+                                    .payload = nullptr,
+                                    .payload_size = 0,
+                                    .response_handle = nullptr,
+                                    .executor = &NoopExecutor},
+                               0)
+                    .Ok());
+  }
+
+  const std::uint16_t port = FindFreePort();
+  ASSERT_TRUE(ingress->Start(MakeIngressConfig(port), DefaultFrameConfig()).Ok());
+
+  const Status first_poll = ingress->PollOnce(0);
+  ASSERT_EQ(first_poll.code, ErrorCode::kBackpressure);
+
+  Task out{};
+  ASSERT_TRUE(queue->Dequeue(&out, 10).Ok());
+  ASSERT_TRUE(queue->Dequeue(&out, 10).Ok());
+  ASSERT_TRUE(queue->Dequeue(&out, 10).Ok());
+  ASSERT_TRUE(queue->Dequeue(&out, 10).Ok());
+  EXPECT_EQ(queue->Size(), 10U);
+
+  const Status second_poll = ingress->PollOnce(0);
+  EXPECT_EQ(second_poll.code, ErrorCode::kBackpressure);
+
+  EXPECT_TRUE(ingress->Stop(0).Ok());
+}
+
+TEST(NetworkIngressEpollTest, BackpressureHysteresisRecoversAtLowWatermarkOrBelow) {
+  auto queue = std::make_shared<CasRingQueue>(16);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  for (std::uint64_t i = 0; i < 14U; ++i) {
+    ASSERT_TRUE(queue->Enqueue(Task{.task_id = i + 1,
+                                    .payload = nullptr,
+                                    .payload_size = 0,
+                                    .response_handle = nullptr,
+                                    .executor = &NoopExecutor},
+                               0)
+                    .Ok());
+  }
+
+  const std::uint16_t port = FindFreePort();
+  ASSERT_TRUE(ingress->Start(MakeIngressConfig(port), DefaultFrameConfig()).Ok());
+
+  const Status first_poll = ingress->PollOnce(0);
+  ASSERT_EQ(first_poll.code, ErrorCode::kBackpressure);
+
+  Task out{};
+  for (int i = 0; i < 5; ++i) {
+    ASSERT_TRUE(queue->Dequeue(&out, 10).Ok());
+  }
+  EXPECT_EQ(queue->Size(), 9U);
+
+  const Status second_poll = ingress->PollOnce(0);
+  EXPECT_TRUE(second_poll.Ok());
+
+  EXPECT_TRUE(ingress->Stop(0).Ok());
+}
+
 TEST(NetworkIngressEpollTest, EndToEndPayloadPassingFromIngressToThreadPool) {
   // 测试完整链路：ingress 接收 → 切帧 → 入队 → payload 验证。
   // 验证：payload 缓冲有效，Task 中的指针指向有效数据，生命周期覆盖出队后使用。

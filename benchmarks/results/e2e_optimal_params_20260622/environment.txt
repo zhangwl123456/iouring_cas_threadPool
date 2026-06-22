@@ -1,0 +1,26 @@
+# 测试环境配置
+
+## 硬件信息
+Platform: Codespace (Linux 6.8.0-1000-aws x86_64)
+CPU: AMD EPYC 7763 (虚拟化)
+vCPU 核心数: 4
+内存: 15 GB
+存储: SSD
+
+## 构建配置
+CMake: >= 3.20
+C++ 标准: C++20
+编译器优化: Release (-O3)
+编译命令: cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4 e2e_benchmark
+
+## 系统配置
+测试日期: 2026-06-22
+测试时间: 12:35-12:45 UTC
+运行平台: VS Code Codespace (Ubuntu 24.04.4 LTS)
+网络: 本地环回 (127.0.0.1)
+
+## 基准对标
+目标环境 (SPEC 7.3): 16 核, 64GB 内存
+本机环境 (实际): 4 核, 15GB 内存
+缩放比例: 4x (推断值)
+

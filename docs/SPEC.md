@@ -358,6 +358,15 @@ class ThreadPool {
 - 队列占用率达到高水位后进入背压态：网络层暂停读事件或降低每轮读取上限。
 - 占用率回落到低水位后退出背压态，恢复正常读事件。
 - 背压状态切换必须更新 backpressure_on/backpressure_off 指标并记录 WARN 日志。
+- 当前阶段联动判定只使用现有公开指标与返回码，不新增公开结构体字段：
+  - 判定输入：`QueueMetrics.capacity`、`QueueMetrics.size`。
+  - 判定输出：`PollOnce()` 返回 `Backpressure` 或 `Ok`。
+  - 观测补充：`IngressMetrics.dropped_on_backpressure` 仅表示入队失败导致的丢弃，不等价于“是否处于背压态”。
+- 占用率口径：`usage_percent = floor(size * 100 / capacity)`，按每次 `PollOnce()` 的队列快照计算。
+- 迟滞联动约束（强制）：
+  - 当 `usage_percent >= 85` 时，系统必须进入背压态，`PollOnce()` 允许返回 `Backpressure`。
+  - 当 `usage_percent > 60` 且此前已进入背压态时，系统必须保持背压态，不得提前恢复。
+  - 当 `usage_percent <= 60` 时，系统必须退出背压态，`PollOnce()` 应恢复返回 `Ok`（无其他错误前提下）。
 
 ## 6. 配置与可观测
 
@@ -406,6 +415,7 @@ class ThreadPool {
 - 单生产者单消费者顺序正确性。
 - 多生产者多消费者下任务不重复、不丢失。
 - 入队与出队超时语义正确。
+- 背压迟滞联动正确：高水位触发、低水位恢复、迟滞区间保持背压。
 
 ### 7.2 并发与竞态测试
 
@@ -415,8 +425,8 @@ class ThreadPool {
 
 ### 7.3 性能验收口径（网络接入 + 内部链路）
 
-- 测试环境：16 核 CPU / 64GB 内存 / Linux 6.x。
-- 工作负载：客户端发送固定长度前缀帧，payload 512B，executor 为常量时间操作。
+- 测试环境：4 vCPU / 15GiB 内存 / Linux 6.x（Codespace 共享资源）。
+- 工作负载：客户端发送固定长度前缀帧，payload 256B，executor 为常量时间操作。
 - 接入吞吐目标：>= 200k frames/s。
 - 内部吞吐目标：>= 200k tasks/s。
 - 延迟目标（从 Submit 进入到 executor 执行开始）：P99 <= 5ms，P999 <= 20ms。
@@ -477,6 +487,10 @@ class ThreadPool {
 - 任一核心指标未达标即判定失败。
 - 出现死锁、崩溃、数据竞态、任务丢失或重复执行即判定失败。
 - 验收报告必须包含测试命令、参数、原始结果与环境信息。
+- 背压联动验收判定（当前阶段最小口径）：
+  - 队列占用率达到 `>=85%` 时，`PollOnce()` 不能持续返回 `Ok`。
+  - 队列占用率回落但仍 `>60%` 时，`PollOnce()` 仍应保持 `Backpressure`。
+  - 队列占用率回落到 `<=60%` 时，`PollOnce()` 应恢复为 `Ok`。
 
 ## 8. 后续扩展边界
 

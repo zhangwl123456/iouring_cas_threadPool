@@ -1,0 +1,37 @@
+端到端压测统计结果 (SPEC 7.3.2 采样规范)
+============================================================
+
+采样轮数: 5
+每轮参数: tasks=20000, threads=4, queue_capacity=8192, payload_bytes=256, connections=8
+
+吞吐量 (tasks/s):
+  均值:     206141.87
+  标准差:   45328.81
+  最小值:   140845.07
+  最大值:   259740.26
+
+P50 延迟 (us):
+  均值:     43737.86
+  标准差:   13112.83
+  最小值:   29229.41
+  最大值:   61903.45
+
+P99 延迟 (us):
+  均值:     73853.30
+  标准差:   19001.61
+  最小值:   55337.65
+  最大值:   103504.90
+
+P999 延迟 (us):
+  均值:     74770.29
+  标准差:   18453.58
+  最小值:   56189.46
+  最大值:   103798.76
+
+端到端链路完整性验证 (SPEC 7.3.1):
+  全部轮次链路完整: ✓ 是
+  R1: frames=20000/20000, executed=20000/20000, errors=(conn_fail=0, frame_err=0, dropped=0, enq_timeout=0)
+  R2: frames=20000/20000, executed=20000/20000, errors=(conn_fail=0, frame_err=0, dropped=0, enq_timeout=0)
+  R3: frames=20000/20000, executed=20000/20000, errors=(conn_fail=0, frame_err=0, dropped=0, enq_timeout=0)
+  R4: frames=20000/20000, executed=20000/20000, errors=(conn_fail=0, frame_err=0, dropped=0, enq_timeout=0)
+  R5: frames=20000/20000, executed=20000/20000, errors=(conn_fail=0, frame_err=0, dropped=0, enq_timeout=0)
