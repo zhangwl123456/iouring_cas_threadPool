@@ -35,6 +35,8 @@ IngressConfig MakeIngressConfig(const std::uint16_t port) {
       .listen_backlog = 16,
       .recv_buffer_size = 1U << 20,
       .send_buffer_size = 1U << 20,
+      .listener_count = 1,
+      .enable_reuseport = false,
       .max_connections = 128,
       .max_events_per_poll = 64,
   };
@@ -79,6 +81,44 @@ TEST(NetworkIngressEpollTest, StartRejectsInvalidConfig) {
 
   IngressConfig cfg = MakeIngressConfig(FindFreePort());
   cfg.bind_ip = "";
+
+  const Status s = ingress->Start(cfg, DefaultFrameConfig());
+  EXPECT_EQ(s.code, ErrorCode::kInvalidArgument);
+}
+
+TEST(NetworkIngressEpollTest, StartRejectsZeroListenerCount) {
+  auto queue = std::make_shared<CasRingQueue>(64);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  IngressConfig cfg = MakeIngressConfig(FindFreePort());
+  cfg.listener_count = 0;
+
+  const Status s = ingress->Start(cfg, DefaultFrameConfig());
+  EXPECT_EQ(s.code, ErrorCode::kInvalidArgument);
+}
+
+TEST(NetworkIngressEpollTest, StartSupportsMultiListenerWithReusePortWhenConfigured) {
+  auto queue = std::make_shared<CasRingQueue>(64);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  IngressConfig cfg = MakeIngressConfig(FindFreePort());
+  cfg.listener_count = 2;
+  cfg.enable_reuseport = true;
+
+  ASSERT_TRUE(ingress->Start(cfg, DefaultFrameConfig()).Ok());
+  EXPECT_TRUE(ingress->Stop(0).Ok());
+}
+
+TEST(NetworkIngressEpollTest, StartRejectsMultiListenerWithoutReusePort) {
+  auto queue = std::make_shared<CasRingQueue>(64);
+  auto decoder = MakeFrameDecoder(DefaultFrameConfig());
+  auto ingress = MakeEpollNetworkIngress(queue, std::move(decoder));
+
+  IngressConfig cfg = MakeIngressConfig(FindFreePort());
+  cfg.listener_count = 2;
+  cfg.enable_reuseport = false;
 
   const Status s = ingress->Start(cfg, DefaultFrameConfig());
   EXPECT_EQ(s.code, ErrorCode::kInvalidArgument);

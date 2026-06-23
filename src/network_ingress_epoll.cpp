@@ -29,7 +29,6 @@ constexpr std::uint32_t kReadChunkSize = 4096;
 constexpr std::uint32_t kQueueHighWatermarkPercent = 85;
 constexpr std::uint32_t kQueueLowWatermarkPercent = 60;
 constexpr std::size_t kReadCompactThresholdBytes = 16U * 1024U;
-constexpr std::uint32_t kReusePortListenerCount = 2;
 
 std::uint32_t MakeConnEvents(const bool enable_read) {
   return EPOLLRDHUP | EPOLLET | (enable_read ? EPOLLIN : 0U);
@@ -103,13 +102,20 @@ class EpollNetworkIngress final : public NetworkIngress {
         ingress_config.max_events_per_poll == 0U) {
       return {ErrorCode::kInvalidArgument, "ingress config has zero fields"};
     }
+    if (ingress_config.listener_count == 0U) {
+      return {ErrorCode::kInvalidArgument, "listener_count must be > 0"};
+    }
+    if (ingress_config.listener_count > 1U && !ingress_config.enable_reuseport) {
+      return {ErrorCode::kInvalidArgument,
+              "enable_reuseport must be true when listener_count > 1"};
+    }
 
     epoll_fd_ = ::epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd_ < 0) {
       return {ErrorCode::kIoError, "epoll_create1 failed"};
     }
 
-    for (std::uint32_t i = 0; i < kReusePortListenerCount; ++i) {
+    for (std::uint32_t i = 0; i < ingress_config.listener_count; ++i) {
       const int listen_fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
       if (listen_fd < 0) {
         CleanupAllFds();
@@ -122,10 +128,12 @@ class EpollNetworkIngress final : public NetworkIngress {
         CleanupAllFds();
         return {ErrorCode::kIoError, "setsockopt(SO_REUSEADDR) failed"};
       }
-      if (::setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
-        (void)::close(listen_fd);
-        CleanupAllFds();
-        return {ErrorCode::kIoError, "setsockopt(SO_REUSEPORT) failed"};
+      if (ingress_config.enable_reuseport) {
+        if (::setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
+          (void)::close(listen_fd);
+          CleanupAllFds();
+          return {ErrorCode::kIoError, "setsockopt(SO_REUSEPORT) failed"};
+        }
       }
 
       sockaddr_in addr{};

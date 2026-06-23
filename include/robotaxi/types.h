@@ -21,6 +21,10 @@ struct IngressConfig {
   std::uint32_t listen_backlog;
   std::uint32_t recv_buffer_size;
   std::uint32_t send_buffer_size;
+  // 监听 socket 数量。默认推荐为 1；仅在明确收益时启用多 acceptor。
+  std::uint32_t listener_count;
+  // 是否启用 SO_REUSEPORT。默认 false。
+  bool enable_reuseport;
   std::uint32_t max_connections;
   std::uint32_t max_events_per_poll;
 };

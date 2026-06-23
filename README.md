@@ -6,14 +6,14 @@
 
 ## 📌 项目简述
 
-**构建工业级高并发任务处理中间件**，实现从 TCP 接收 → 消息切分 → 无锁队列 → 线程池执行的完整链路。采用 epoll 网络后端、CAS 无锁环形队列、多 listen socket 等技术，通过生产级端到端压测验证达到 **278K tps 吞吐量、44.8ms P99 延迟**的性能指标，所有关键流程零容错闭合验证。
+**构建工业级高并发任务处理中间件**，实现从 TCP 接收 → 消息切分 → 无锁队列 → 线程池执行的完整链路。采用 epoll 网络后端、CAS 无锁环形队列、可配置监听策略（默认单 listen socket）等技术，通过生产级端到端压测验证达到 **278K tps 吞吐量、44.8ms P99 延迟**的性能指标，所有关键流程零容错闭合验证。
 
 ---
 
 ## 🎯 核心职责与贡献
 
 ### 架构设计与实现
-- **网络接入层** (NetworkIngress): 设计 epoll 事件循环架构，实现多 listen socket + SO_REUSEPORT 方案分散 accept 竞争；支持双层背压机制（高低水位迟滞）；修复关键 bug：连接关闭时完整处理已接收最后帧
+- **网络接入层** (NetworkIngress): 设计 epoll 事件循环架构，默认采用单 listen socket（`listener_count=1`、`enable_reuseport=false`），并支持按配置启用多 listener + SO_REUSEPORT；支持双层背压机制（高低水位迟滞）；修复关键 bug：连接关闭时完整处理已接收最后帧
 - **消息切分层** (FrameDecoder): 实现固定长度前缀协议切分，支持半包/粘包处理、超限/零长度错误检测；7 个单元测试 100% 通过
 - **无锁队列** (RingQueue): 采用 CAS + 序号法实现 MPMC 环形缓冲区，避免互斥锁竞争；支持入队/出队超时；5 个单元测试 100% 通过
 - **线程池** (ThreadPool): 实现工作线程生命周期管理、CAS 无锁出队、优雅停止流程；5 个单元测试 100% 通过
@@ -26,7 +26,7 @@
 ### 代码质量
 - **工业级注释**: 完善所有公开接口的文档注释（参数、返回值、线程安全、生命周期）
 - **并发安全分析**: 明确标注内存序（release/acquire）、防饥饿策略、无死锁证明
-- **完整测试覆盖**: 22 个单元测试 + 3 层级端到端集成测试
+- **完整测试覆盖**: 5 个单测目标，覆盖 30 个单元测试用例 + 3 层级端到端集成测试
 
 ---
 
@@ -56,7 +56,7 @@ TCP 连接
 | **队列算法** | CAS 环形 + 序号法 | 无锁无竞争，序号法解决 ABA 问题，支持 MPMC |
 | **消息协议** | 固定长度前缀 | 简洁易实现，易识别半包/粘包 |
 | **线程模型** | work-stealing (无共享) | 每线程独立从队列出队，最小化原子操作 |
-| **Acceptor** | 2 个 listen socket + SO_REUSEPORT | 分散 accept 竞争，提升多核可扩展性 |
+| **Acceptor** | 默认单 listen socket（可配置多 listener + SO_REUSEPORT） | 默认路径优先稳定性；高并发场景可按证据启用多 listener |
 
 ---
 
@@ -101,7 +101,7 @@ TCP 连接
 
 | 类型 | 覆盖 | 状态 |
 |------|------|------|
-| 单元测试 | 22/22 | ✅ 全通过 |
+| 单元测试 | 30 个用例 | ✅ 已覆盖 |
 | 集成测试 | smoke / nominal / stress | ✅ 全通过 |
 | 维度测试 | 连接数 + payload 大小 | ✅ 全通过 |
 | 基线采样 | 多轮统计 | ✅ 已验证 |
@@ -116,7 +116,7 @@ TCP 连接
 
 3. **背压机制**: 采用高低水位迟滞策略，当队列堆积超过高水位时自动暂停读事件，防止内存溢出；优雅恢复避免频繁切换
 
-4. **多 listen socket 架构**: 通过 SO_REUSEPORT 在单 epoll 内创建多个 listen socket 并分散 accept，减少单点竞争
+4. **可配置监听架构**: 默认使用单 listen socket 保持稳定基线；当压测证据充分时，可通过 `listener_count > 1` + `enable_reuseport=true` 启用多 listener 分散 accept 竞争
 
 5. **自动端口选择**: e2e_benchmark 使用 bind(port=0) 自动获取空闲端口，避免 Codespace 共享环境的外部探测污染压测结果
 
@@ -143,11 +143,12 @@ src/
 ├── thread_pool.cpp
 └── capacity_executor.cpp
 
-tests/                        # 22 个单元测试 (100% 通过)
-├── network_ingress_epoll_test.cpp    (5/5)
-├── frame_decoder_test.cpp            (7/7)
-├── ring_queue_enqueue_test.cpp       (5/5)
-└── thread_pool_test.cpp              (5/5)
+tests/                        # 30 个单元测试用例
+├── network_ingress_epoll_test.cpp    (9)
+├── frame_decoder_test.cpp            (7)
+├── ring_queue_enqueue_test.cpp       (5)
+├── thread_pool_test.cpp              (5)
+└── capacity_executor_test.cpp        (2)
 
 benchmarks/
 ├── e2e_benchmark.cpp        # 端到端压测工具
@@ -156,7 +157,7 @@ benchmarks/
 
 docs/
 ├── SPEC.md                  # 完整规格说明（当前阶段冻结）
-├── PROGRESS_LOG.md          # 开发进度日志（20 个里程碑）
+├── PROGRESS_LOG.md          # 开发进度日志（持续更新）
 └── LESSONS_LEARNT.md        # 设计决策与经验总结
 ```
 
@@ -170,7 +171,7 @@ docs/
 # 编译
 cmake -B build && cmake --build build
 
-# 运行所有单元测试（22/22）
+# 运行所有单元测试
 ctest --test-dir build --output-on-failure
 
 # 端到端压测
@@ -216,7 +217,7 @@ connections=4, payload_bytes=128, threads=4-8, queue_capacity=4096
 ## 🔗 相关文档
 
 - [SPEC.md](docs/SPEC.md) - 完整规格说明（架构、API、验收标准）
-- [PROGRESS_LOG.md](docs/PROGRESS_LOG.md) - 开发进度日志（20 个里程碑）
+- [PROGRESS_LOG.md](docs/PROGRESS_LOG.md) - 开发进度日志（持续更新）
 - [e2e 测试报告](benchmarks/results/e2e_scaling_20260620/README.md) - 性能测试详细报告
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) - 仓库开发规范
 

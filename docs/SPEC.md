@@ -113,6 +113,8 @@ struct IngressConfig {
   uint32_t listen_backlog;
   uint32_t recv_buffer_size;
   uint32_t send_buffer_size;
+  uint32_t listener_count;
+  bool enable_reuseport;
   uint32_t max_connections;
   uint32_t max_events_per_poll;
 };
@@ -249,9 +251,14 @@ class NetworkIngress {
 - epoll 触发模式（第 2 步单变量实验）：
   - `listen_fd` 保持 LT（默认 `EPOLLIN`），优先保证 accept 行为可观测与稳定性。
   - `conn_fd` 采用 ET（`EPOLLIN | EPOLLET`），并保持“读到 `EAGAIN` 为止”的 drain 语义。
-- 监听 socket 复用策略（第 2 步单变量实验）：
-  - `listen_fd` 同时启用 `SO_REUSEADDR` 与 `SO_REUSEPORT`。
-  - 当前阶段采用“单 ingress 实例 + 多监听 socket”的最小多 acceptor 实现：固定创建 2 个 listen socket 并共同注册到同一 epoll 实例。
+- 监听接入策略（当前阶段默认）：
+  - 默认采用“单 ingress 实例 + 单 listen socket”。
+  - `listen_fd` 默认仅启用 `SO_REUSEADDR`；`SO_REUSEPORT` 为可选能力，不作为默认路径。
+  - 多 acceptor 改为显式配置能力：
+    - `listener_count`: 监听 socket 数量，默认 1。
+    - `enable_reuseport`: 是否启用 `SO_REUSEPORT`，默认 false。
+    - 约束：当 `listener_count > 1` 时，`enable_reuseport` 必须为 true。
+  - 仅当 `listener_count > 1` 且通过压测证据证明收益稳定时，才建议在生产环境启用。
 - 背压策略：采用“高低水位迟滞 + 暂停读事件”。
   - 队列占用达到 HIGH_WATERMARK（85%）时，暂停连接读事件（必要时含监听 fd 读事件）。
   - 占用回落到 LOW_WATERMARK（60%）时恢复读事件。

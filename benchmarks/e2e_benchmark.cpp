@@ -536,6 +536,8 @@ bool RunE2EBenchmark(const E2EBenchmarkConfig& config, E2EBenchmarkResult* resul
       .listen_backlog = 128,
       .recv_buffer_size = 65536,
       .send_buffer_size = 65536,
+      .listener_count = 1,
+      .enable_reuseport = false,
       .max_connections = 10000,
       .max_events_per_poll = 1024,
   };
