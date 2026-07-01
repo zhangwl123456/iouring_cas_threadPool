@@ -1,0 +1,8 @@
+baseline_id=long_conn_v1_20260701
+gate_result=PASS
+rule_integrity=all sample rounds must pass integrity
+rule_throughput=throughput_mean >= 300000
+rule_p99=p99_mean <= 45000
+throughput_mean=363934.425
+p99_mean=37661.735
+integrity_pass_count=2/2

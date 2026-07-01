@@ -1,0 +1,15 @@
+baseline_id=long_conn_v1_20260701
+tasks=20000
+threads=4
+queue_capacity=8192
+payload_bytes=256
+client_connections=8
+warmup_rounds=1
+sample_repeats=2
+min_throughput_tps=300000
+max_p99_us=40000
+git_branch=dev
+git_commit=731381a
+hostname=codespaces-545cb2
+kernel=Linux 6.8.0-1052-azure
+run_dir=benchmarks/results/fixed_baseline_long_conn_v1_20260701_20260701_084332_smoke_verify

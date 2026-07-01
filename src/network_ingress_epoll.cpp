@@ -48,11 +48,17 @@ void CloseFdIfValid(int* fd) {
   }
 }
 
-// EpollNetworkIngress：epoll 后端的网络接入实现。
-// 关键职责：
-// 1) 管理监听与连接生命周期（accept/read/close）；
-// 2) 将字节流切分为帧并封装为 Task 入队；
-// 3) 通过高低水位背压控制读事件，避免队列被持续写满。
+// EpollNetworkIngress：epoll 后端的网络接入实现（当前主交付路径）。
+//
+// 设计思想：
+// 1) 在“长连接低频建连 + 高频消息处理”场景下，优先保证稳态吞吐与可预测延迟；
+// 2) 明确职责边界：本模块只负责接入、切帧、投递，不承担业务语义解析；
+// 3) 通过迟滞背压（高/低水位）避免队列长期满载导致的系统失稳与级联抖动。
+//
+// 并发语义：
+// - 控制面（Start/Stop/PollOnce）按单线程驱动模型设计；
+// - 执行面（ReleasePayload）由 worker 线程回调，需与接入线程并发访问 payload 池；
+// - payload_buffers_/payload_handles_ 统一受 payload_mu_ 保护，避免悬垂指针与双重释放。
 class EpollNetworkIngress final : public NetworkIngress {
  public:
   EpollNetworkIngress(std::shared_ptr<RingQueue> queue, std::unique_ptr<FrameDecoder> decoder,
@@ -86,6 +92,7 @@ class EpollNetworkIngress final : public NetworkIngress {
   }
 
   Status Start(const IngressConfig& ingress_config, const FrameConfig&) override {
+    // 运行态检查使用 acquire：确保读到最新 running_，避免重复启动破坏 fd 所有权。
     if (running_.load(std::memory_order_acquire)) {
       return {ErrorCode::kAlreadyRunning, "ingress already running"};
     }
@@ -106,6 +113,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       return {ErrorCode::kInvalidArgument, "listener_count must be > 0"};
     }
     if (ingress_config.listener_count > 1U && !ingress_config.enable_reuseport) {
+      // 多 listen socket 若不启用 reuseport，会导致绑定/分流语义不明确，直接拒绝。
       return {ErrorCode::kInvalidArgument,
               "enable_reuseport must be true when listener_count > 1"};
     }
@@ -129,6 +137,7 @@ class EpollNetworkIngress final : public NetworkIngress {
         return {ErrorCode::kIoError, "setsockopt(SO_REUSEADDR) failed"};
       }
       if (ingress_config.enable_reuseport) {
+        // 仅在显式配置下启用 reuseport：默认路径保持单 listen，降低行为复杂度。
         if (::setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
           (void)::close(listen_fd);
           CleanupAllFds();
@@ -171,6 +180,7 @@ class EpollNetworkIngress final : public NetworkIngress {
     }
 
     ingress_config_ = ingress_config;
+    // release 保证：监听 fd/epoll 注册完成后，再对外可见 running=true。
     running_.store(true, std::memory_order_release);
     return Status::Success();
   }
@@ -180,6 +190,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       return {ErrorCode::kNotRunning, "ingress not running"};
     }
 
+    // 先发布停止信号，再执行资源回收；避免并发 PollOnce 在回收期间继续处理事件。
     running_.store(false, std::memory_order_release);
     for (auto& [fd, _] : conn_buffers_) {
       (void)::close(fd);
@@ -187,7 +198,7 @@ class EpollNetworkIngress final : public NetworkIngress {
     conn_buffers_.clear();
     CleanupAllFds();
 
-    // 清理所有未被消费的帧缓冲。若线程池已完成执行，缓冲的管理责任回归 ingress 层。
+    // 清理所有未被消费的帧缓冲。该区域与 ReleasePayload 并发，需互斥保护。
     {
       std::lock_guard<std::mutex> lock(payload_mu_);
       payload_buffers_.clear();
@@ -204,6 +215,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       return {ErrorCode::kNotRunning, "ingress not running"};
     }
 
+    // 先刷新背压态再 wait：确保本轮事件处理使用最新读开关，减少过量读入。
     const bool in_backpressure = RefreshBackpressureState();
 
     std::vector<epoll_event> events(ingress_config_.max_events_per_poll);
@@ -226,6 +238,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       if ((ev & EPOLLIN) != 0U) {
+        // 先处理读事件，确保 RDHUP 场景下已到达缓冲的数据不被跳过。
         const Status s = HandleRead(fd);
         if (!s.Ok()) {
           return s;
@@ -233,6 +246,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       if ((ev & (EPOLLHUP | EPOLLERR | EPOLLRDHUP)) != 0U) {
+        // 读路径已尽量消费可读数据；此处分支仅负责收尾关闭，避免重复 decode。
         CloseConnection(fd);
         continue;
       }
@@ -271,11 +285,13 @@ class EpollNetworkIngress final : public NetworkIngress {
     const bool current = backpressure_active_.load(std::memory_order_acquire);
 
     if (!current && usage_percent >= kQueueHighWatermarkPercent) {
+      // 高水位触发：立即停读，把压力限制在 ingress 前段，防止队列持续冲高。
       backpressure_active_.store(true, std::memory_order_release);
       UpdateReadEvents(false);
       return true;
     }
     if (current && usage_percent <= kQueueLowWatermarkPercent) {
+      // 低水位恢复：使用迟滞区间避免高低阈值附近的频繁抖动。
       backpressure_active_.store(false, std::memory_order_release);
       UpdateReadEvents(true);
       return false;
@@ -296,6 +312,7 @@ class EpollNetworkIngress final : public NetworkIngress {
     }
 
     for (const auto& [fd, _] : conn_buffers_) {
+      // 统一批量切换 conn_fd 的读事件，确保背压语义对所有活跃连接一致生效。
       epoll_event conn_ev{};
       conn_ev.events = MakeConnEvents(enable_read);
       conn_ev.data.fd = fd;
@@ -312,12 +329,14 @@ class EpollNetworkIngress final : public NetworkIngress {
                     SOCK_NONBLOCK | SOCK_CLOEXEC);
       if (conn_fd < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          // LT/ET 下 accept drain 结束条件：表示本轮已接尽可接连接。
           return;
         }
         return;
       }
 
       if (conn_buffers_.size() >= ingress_config_.max_connections) {
+        // 连接数达到上限时主动拒绝，优先保护既有连接与处理链路稳定。
         (void)::close(conn_fd);
         continue;
       }
@@ -342,44 +361,54 @@ class EpollNetworkIngress final : public NetworkIngress {
   };
 
   Status HandleRead(const int conn_fd) {
+    // connection buffer 必须存在，否则说明 epoll 事件与 conn_buffers_ 状态不一致。
     auto it = conn_buffers_.find(conn_fd);
+    // 如果出现 conn_buffers_ 中缺失的 fd，说明 epoll 事件与 conn_buffers_ 状态不一致，
+    // 可能是由于连接已被关闭或未正确注册。此时返回 IO 错误状态，提示连接状态缺失。
     if (it == conn_buffers_.end()) {
       return {ErrorCode::kIoError, "connection state missing"};
     }
-
+    // 处理读事件时，先尽量 drain 可读数据，再执行切帧入队，确保已到达数据不被丢弃。
     ConnBuffer& conn_buf = it->second;
+    // kReadChunkSize 的大小是一个经验值，既能保证每次 recv 有足够的缓冲空间，又不会占用过多内存。
     std::uint8_t tmp[kReadChunkSize];
     bool peer_closed = false;
-
+    // ET 模式下，必须循环 drain 直到 EAGAIN/EWOULDBLOCK 才能保证本轮读事件处理完毕。
     for (;;) {
       const ssize_t n = ::recv(conn_fd, tmp, sizeof(tmp), 0);
       if (n == 0) {
+        // 对端半关闭：先标记，后续仍要消费本端已接收缓冲，避免丢帧。
         peer_closed = true;
         break;
       }
       if (n < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          // ET 下 drain 结束条件；非错误，表示当前已无可读数据。
           break;
         }
         return {ErrorCode::kIoError, "recv failed"};
       }
-
+      // 累计接收字节数，供指标统计使用。
       recv_bytes_.fetch_add(static_cast<std::uint64_t>(n), std::memory_order_relaxed);
+      // 将新接收数据追加到 connection buffer 尾部，供后续切帧使用。
       conn_buf.bytes.insert(conn_buf.bytes.end(), tmp, tmp + n);
     }
 
     for (;;) {
       FrameDecodeResult result{};
+      // 如果 consumed 超过 bytes.size()，说明切帧逻辑出现异常，可能导致访问越界。
+      // consumed在EnqueueFrames中，处理完每个完整帧后，会将 consumed 增加已消费的字节数。
       if (conn_buf.consumed > conn_buf.bytes.size()) {
         return {ErrorCode::kIoError, "connection buffer offset invalid"};
       }
-
+      // conn_buf.consumed 表示已消费的字节数，conn_buf.bytes.size() 表示当前缓冲区的总字节数。
       const std::size_t available = conn_buf.bytes.size() - conn_buf.consumed;
       const std::uint8_t* decode_ptr =
           (available == 0U) ? nullptr : (conn_buf.bytes.data() + conn_buf.consumed);
       const Status decode_status = decoder_->Decode(decode_ptr, available, &result);
       if (!decode_status.Ok()) {
         if (decode_status.code == ErrorCode::kFrameError) {
+          // 帧级协议错误按连接维度隔离：关闭当前连接，避免污染全局处理链路。
           frame_decode_error_.fetch_add(1, std::memory_order_relaxed);
           CloseConnection(conn_fd);
           return Status::Success();
@@ -388,6 +417,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       if (!EnqueueFrames(result)) {
+        // 入队失败立即回退为背压：优先保护内存与队列，不继续吞入新数据。
         dropped_on_backpressure_.fetch_add(1, std::memory_order_relaxed);
         return {ErrorCode::kBackpressure, "queue full during frame enqueue"};
       }
@@ -397,6 +427,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       }
 
       conn_buf.consumed += result.bytes_consumed;
+      // 使用 consumed 偏移替代逐帧 erase，降低热路径线性搬移成本。
       CompactConnBuffer(&conn_buf);
       if (conn_buf.bytes.empty()) {
         break;
@@ -404,6 +435,7 @@ class EpollNetworkIngress final : public NetworkIngress {
     }
 
     if (peer_closed) {
+      // 仅在 decode 循环结束后关闭连接，确保已到达数据有机会被切帧入队。
       CloseConnection(conn_fd);
     }
 
@@ -427,6 +459,7 @@ class EpollNetworkIngress final : public NetworkIngress {
 
       // 先入缓冲池，再入队列（确保缓冲有效）。
       {
+        // 与 ReleasePayload 并发，必须在同一把锁下维护双 map 一致性。
         std::lock_guard<std::mutex> lock(payload_mu_);
         payload_buffers_[task_id] = std::move(payload_buffer);
         payload_handles_[task_id] = std::move(payload_handle);
@@ -443,6 +476,7 @@ class EpollNetworkIngress final : public NetworkIngress {
       const Status s = queue_->Enqueue(task, 0);
       if (!s.Ok()) {
         // 入队失败时，从缓冲池移除该任务的缓冲（自动析构）。
+        // 必须回滚，避免“未入队却持有缓冲”的孤儿对象。
         std::lock_guard<std::mutex> lock(payload_mu_);
         payload_buffers_.erase(task_id);
         payload_handles_.erase(task_id);
@@ -457,6 +491,7 @@ class EpollNetworkIngress final : public NetworkIngress {
     if (conn_buffers_.find(conn_fd) == conn_buffers_.end()) {
       return;
     }
+    // 先从 epoll 删除再 close，防止 fd 重用后出现幽灵事件。
     (void)::epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, conn_fd, nullptr);
     (void)::close(conn_fd);
     conn_buffers_.erase(conn_fd);
@@ -490,6 +525,7 @@ class EpollNetworkIngress final : public NetworkIngress {
         conn_buf->consumed >= kReadCompactThresholdBytes &&
         conn_buf->consumed >= remaining;
     if (!should_compact) {
+      // 压缩是线性搬移，仅在“已消费足够多且收益明显”时触发，控制 CPU 抖动。
       return;
     }
 
@@ -499,6 +535,7 @@ class EpollNetworkIngress final : public NetworkIngress {
   }
 
   void ReleasePayload(const std::uint64_t task_id) {
+    // worker 线程回收入口：通过 task_id 精确删除，避免跨线程释放悬垂引用。
     std::lock_guard<std::mutex> lock(payload_mu_);
     payload_buffers_.erase(task_id);
     payload_handles_.erase(task_id);

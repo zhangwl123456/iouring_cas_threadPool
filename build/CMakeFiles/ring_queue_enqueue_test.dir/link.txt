@@ -1,1 +1,1 @@
-/usr/bin/c++ CMakeFiles/ring_queue_enqueue_test.dir/tests/ring_queue_enqueue_test.cpp.o -o ring_queue_enqueue_test  librobotaxi_core.a lib/libgtest_main.a lib/libgtest.a 
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/ring_queue_enqueue_test.dir/tests/ring_queue_enqueue_test.cpp.o -o ring_queue_enqueue_test  librobotaxi_core.a lib/libgtest_main.a lib/libgtest.a 

@@ -186,6 +186,10 @@ ctest --test-dir build --output-on-failure
 
 # 提取 CSV 结果
 ./benchmarks/extract_e2e_results.sh benchmarks/results/e2e_scaling_20260620 > results.csv
+
+# 固定基线脚本（推荐用于优化前后对比）
+chmod +x ./benchmarks/run_fixed_baseline.sh
+./benchmarks/run_fixed_baseline.sh --tag before_opt
 ```
 
 ---

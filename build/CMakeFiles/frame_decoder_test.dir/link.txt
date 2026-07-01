@@ -1,1 +1,1 @@
-/usr/bin/c++ CMakeFiles/frame_decoder_test.dir/tests/frame_decoder_test.cpp.o -o frame_decoder_test  librobotaxi_core.a lib/libgtest_main.a lib/libgtest.a 
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/frame_decoder_test.dir/tests/frame_decoder_test.cpp.o -o frame_decoder_test  librobotaxi_core.a lib/libgtest_main.a lib/libgtest.a 

@@ -1,0 +1,4 @@
+run_id,phase,total_tasks,worker_threads,queue_capacity,payload_bytes,client_connections,duration_ms,throughput_tps,p50_us,p99_us,p999_us,connection_success,connection_failed,send_failed,enqueue_success,enqueue_timeout,tp_executed,executor_executed,completed_frames,frame_decode_error,dropped_on_backpressure,integrity_pass
+1,warmup,20000,4,8192,256,8,76.00,263157.89,33882.22,60287.96,60634.94,8,0,0,20000,0,20000,20000,20000,0,0,1
+1,sample,20000,4,8192,256,8,50.00,400000.00,17252.31,32829.20,34109.37,8,0,0,20000,0,20000,20000,20000,0,0,1
+2,sample,20000,4,8192,256,8,61.00,327868.85,23319.28,42494.27,42764.31,8,0,0,20000,0,20000,20000,20000,0,0,1

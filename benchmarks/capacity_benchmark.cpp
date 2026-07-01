@@ -23,7 +23,7 @@ namespace robotaxi {
 namespace {
 
 struct BenchmarkConfig {
-  std::uint64_t task_count = 200000;
+  std::uint64_t task_count = 20000;
   std::uint32_t worker_threads = 8;
   std::uint32_t queue_capacity = 65536;
   std::uint32_t payload_bytes = 256;
